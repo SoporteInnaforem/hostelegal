@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, PackageSearch } from "lucide-react";
 import { useMenuStore } from "../store/useMenuStore";
 import { INGREDIENTS_DB } from "../../../data/ingredients";
-import type { Ingredient } from "../../../data/ingredients";
+import type { DbIngredient } from "../../../data/ingredients";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ export function IngredientSearch() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  function handleSelect(item: Ingredient) {
+  function handleSelect(item: DbIngredient) {
     addDraftIngredient({
       id: item.id,
       name: item.name,
