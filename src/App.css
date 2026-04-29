@@ -1,0 +1,12 @@
+/*
+ * App.css — vacío intencionalmente.
+ *
+ * El CSS del proyecto vive exclusivamente en src/index.css:
+ * - Tailwind v4 (@import "tailwindcss")
+ * - Design tokens (@theme)
+ * - Base styles
+ * - Animaciones del dropdown
+ *
+ * Este archivo se conserva para no romper posibles imports futuros,
+ * pero no debe contener estilos.
+ */
