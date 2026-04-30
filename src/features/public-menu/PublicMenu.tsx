@@ -1,0 +1,151 @@
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+import { Loader2, ChefHat, AlertCircle } from "lucide-react";
+import { AllergenIcon } from "../dish-builder/components/AllergenIcon";
+import type { Dish } from "../dish-builder/store/useMenuStore";
+
+export function PublicMenu() {
+    const { id } = useParams();
+    const [platos, setPlatos] = useState<Dish[]>([]);
+    const [nombreRestaurante, setNombreRestaurante] = useState<string>("");
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        async function cargarCarta() {
+            if (!id) return;
+
+            try {
+                // 1. Buscamos la carta en Supabase usando la ID de la URL
+                const { data, error: dbError } = await supabase
+                    .from("cartas")
+                    .select(`
+            platos,
+            actualizado_en,
+            empresas (
+              nombre_restaurante
+            )
+          `)
+                    .eq("id", id)
+                    .single();
+
+                if (dbError) throw dbError;
+
+                // 2. Guardamos los datos en el estado local
+                setPlatos(data.platos);
+                const empresa = Array.isArray(data.empresas) ? data.empresas[0] : data.empresas;
+                setNombreRestaurante(empresa?.nombre_restaurante || "Carta de Alérgenos");
+
+            } catch (err) {
+                console.error("Error cargando carta:", err);
+                setError("No hemos podido cargar esta carta. Es posible que el enlace haya caducado o sea incorrecto.");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        cargarCarta();
+    }, [id]);
+
+    // Pantalla de Carga
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-surface-50 flex flex-col items-center justify-center p-6 text-brand-500">
+                <Loader2 size={40} className="animate-spin mb-4" />
+                <p className="font-medium text-surface-600 animate-pulse">Cargando carta...</p>
+            </div>
+        );
+    }
+
+    // Pantalla de Error (ej. QR antiguo o borrado)
+    if (error || platos.length === 0) {
+        return (
+            <div className="min-h-screen bg-surface-50 flex flex-col items-center justify-center p-6 text-center">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-surface-200 max-w-md w-full">
+                    <AlertCircle size={48} className="text-danger-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-surface-800 mb-2">Carta no disponible</h2>
+                    <p className="text-surface-600">{error || "Esta carta no tiene platos actualmente."}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // LA CARTA DIGITAL (Diseño optimizado para móviles)
+    return (
+        <div className="min-h-screen bg-surface-100 pb-20">
+            {/* Cabecera pegajosa */}
+            <header className="bg-brand-500 text-white sticky top-0 z-10 shadow-md">
+                <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col items-center text-center">
+                    <div className="bg-white/20 p-2 rounded-full mb-2">
+                        <ChefHat size={24} className="text-white" />
+                    </div>
+                    <h1 className="text-xl font-bold tracking-tight">{nombreRestaurante}</h1>
+                    <p className="text-brand-100 text-xs mt-1 font-medium tracking-wider uppercase">
+                        Información de Alérgenos
+                    </p>
+                </div>
+            </header>
+
+            {/* Lista de Platos */}
+            <main className="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-4">
+                {platos.map((plato, index) => {
+                    // Extraemos todos los alérgenos únicos de los ingredientes de este plato
+                    const alergenosUnicos = [
+                        ...new Set(plato.ingredients.flatMap((i) => i.allergens)),
+                    ];
+
+                    // Formateamos los ingredientes en una lista separada por comas
+                    const listaIngredientes = plato.ingredients.map(i => i.name).join(", ");
+
+                    return (
+                        <article
+                            key={plato.id || index}
+                            className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200"
+                        >
+                            <h2 className="text-lg font-bold text-surface-800 leading-tight mb-2">
+                                {plato.name}
+                            </h2>
+
+                            {/* INGREDIENTES: Nuevo bloque añadido aquí */}
+                            {plato.ingredients.length > 0 && (
+                                <p className="text-sm text-surface-600 mb-4 leading-relaxed">
+                                    <span className="font-semibold text-surface-800">Ingredientes:</span> {listaIngredientes}.
+                                </p>
+                            )}
+
+                            <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
+                                    Alérgenos detectados:
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {alergenosUnicos.length === 0 ? (
+                                        <span className="text-sm text-success-600 font-medium bg-success-50 px-2 py-1 rounded-md">
+                                            ✓ Libre de los 14 alérgenos principales
+                                        </span>
+                                    ) : (
+                                        alergenosUnicos.map((alergeno) => (
+                                            <div key={alergeno} className="flex items-center gap-1.5 bg-white border border-surface-200 px-2 py-1 rounded-md shadow-sm">
+                                                <AllergenIcon allergen={alergeno} size="sm" />
+                                                <span className="text-xs font-medium text-surface-700 capitalize">
+                                                    {alergeno.toLowerCase().replace(/_/g, " ")}
+                                                </span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </article>
+                    );
+                })}
+            </main>
+
+            {/* Pie de página legal */}
+            <footer className="max-w-3xl mx-auto px-4 mt-12 text-center">
+                <p className="text-xs text-surface-400 max-w-sm mx-auto">
+                    Información proporcionada según el Reglamento (UE) nº 1169/2011. Si tiene alergias severas, consulte siempre con el personal del establecimiento.
+                </p>
+            </footer>
+        </div>
+    );
+}

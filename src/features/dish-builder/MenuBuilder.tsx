@@ -17,6 +17,7 @@ import type { AllergenId } from "./utils/allergens";
 import { AllergenIcon } from "./components/AllergenIcon";
 import { IngredientSearch } from "./components/IngredientSearch";
 import { IngredientTable } from "./components/IngredientTable";
+import { PublishModal } from './components/PublishModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -363,6 +364,7 @@ export function MenuBuilder() {
   const saveDishToMenu = useMenuStore((s) => s.saveDishToMenu);
 
   const [isExporting, setIsExporting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const canSave =
     draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
@@ -411,14 +413,14 @@ export function MenuBuilder() {
             <button
               id="export-carta-btn"
               type="button"
-              onClick={handleExport}
+              onClick={() => setIsModalOpen(true)}
               disabled={!canExport || isExporting}
               title={
                 !restaurantName.trim()
                   ? "Introduce el nombre del establecimiento"
                   : !canExport
                     ? "Añade al menos un plato"
-                    : "Exportar PDF"
+                    : "Publicar Carta"
               }
               className={[
                 "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
@@ -432,7 +434,7 @@ export function MenuBuilder() {
               ) : (
                 <FileDown size={15} />
               )}
-              {isExporting ? "Generando PDF…" : "Exportar Carta PDF"}
+              {isExporting ? "Generando..." : "Publicar Carta"}
             </button>
           </div>
 
@@ -604,6 +606,15 @@ export function MenuBuilder() {
           </div>
         </section>
       </div>
+      <PublishModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onGeneratePDF={() => {
+          setIsModalOpen(false);
+          handleExport();
+        }}
+        platos={menu}
+      />
     </div>
   );
 }
