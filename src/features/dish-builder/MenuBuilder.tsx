@@ -9,7 +9,9 @@ import {
   BookOpen,
   PenLine,
   Building2,
+  ArrowLeft,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useMenuStore } from "./store/useMenuStore";
 import type { Dish } from "./store/useMenuStore";
 import { ALLERGEN_LABEL } from "./utils/allergens";
@@ -17,7 +19,7 @@ import type { AllergenId } from "./utils/allergens";
 import { AllergenIcon } from "./components/AllergenIcon";
 import { IngredientSearch } from "./components/IngredientSearch";
 import { IngredientTable } from "./components/IngredientTable";
-import { PublishModal } from './components/PublishModal';
+import { PublishModal } from "./components/PublishModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -397,7 +399,17 @@ export function MenuBuilder() {
         {/* HEADER */}
         <header className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {" "}
+              {/* Cambiamos gap-3 a gap-4 para darle un respiro al botón */}
+              {/* NUEVO BOTÓN DE ATRÁS */}
+              <Link
+                to="/dashboard"
+                className="p-2 -ml-2 rounded-lg text-surface-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                title="Volver al Panel"
+              >
+                <ArrowLeft size={20} />
+              </Link>
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30">
                 <ChefHat size={20} className="text-brand-600" />
               </div>
