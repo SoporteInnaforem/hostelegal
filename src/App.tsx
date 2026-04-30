@@ -8,6 +8,7 @@ import { Login } from "./features/auth/Login";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { MenuBuilder } from "./features/dish-builder/MenuBuilder";
 import { PublicMenu } from "./features/public-menu/PublicMenu";
+import { Documentation } from "./features/documentation/Documentation";
 import { Loader2 } from "lucide-react";
 
 export default function App() {
@@ -83,6 +84,14 @@ export default function App() {
 
         {/* Ruta por defecto (404) redirige al inicio */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Ruta Documentación: Bloqueada si NO tienes sesión */}
+        <Route
+          path="/documentacion"
+          element={
+            session ? <Documentation /> : <Navigate to="/login" replace />
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

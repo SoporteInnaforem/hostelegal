@@ -69,11 +69,9 @@ export function Dashboard() {
 
                 <div className="grid md:grid-cols-2 gap-6">
 
-                    {/* Opción A: Documentación Normativa (Tally) */}
-                    <a
-                        href="https://tally.so" // <-- Cambia esto por el enlace real de tu Tally
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {/* Opción A: Documentación Normativa */}
+                    <Link
+                        to="/documentacion"
                         className="group bg-white rounded-2xl p-8 border border-surface-200 shadow-sm hover:shadow-xl hover:border-brand-300 transition-all cursor-pointer text-left flex flex-col"
                     >
                         <div className="w-14 h-14 bg-surface-100 rounded-xl flex items-center justify-center text-surface-600 group-hover:bg-brand-50 group-hover:text-brand-500 transition-colors mb-6">
@@ -83,7 +81,7 @@ export function Dashboard() {
                         <p className="text-surface-500 text-sm flex-1">
                             Completa el formulario interactivo para generar tu PDF de cumplimiento normativo rellenado automáticamente a partir de tu plantilla base.
                         </p>
-                    </a>
+                    </Link>
 
                     {/* Opción B: Constructor de Carta (Tu App de React) */}
                     <Link
