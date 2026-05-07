@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -10,6 +11,8 @@ import {
   PenLine,
   Building2,
   ArrowLeft,
+  Info,
+  X
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMenuStore } from "./store/useMenuStore";
@@ -24,7 +27,7 @@ import { PublishModal } from "./components/PublishModal";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ALL_ALLERGEN_IDS = Object.keys(ALLERGEN_LABEL) as AllergenId[];
-const BRAND_RGB: [number, number, number] = [27, 97, 116]; // ✅ FIX: Color #1b6174
+const BRAND_RGB: [number, number, number] = [27, 97, 116];
 
 // ─── svgUrlToBase64 ───────────────────────────────────────────────────────────
 
@@ -42,7 +45,6 @@ async function imgUrlToBase64(url: string): Promise<string> {
         return;
       }
 
-      // ✅ FIX: Calcular proporciones para no aplastar la imagen
       const scale = Math.min(64 / img.width, 64 / img.height);
       const w = img.width * scale;
       const h = img.height * scale;
@@ -121,14 +123,14 @@ async function exportCartaPDF(
     24,
   );
 
-  let cursorY = 40; // ✅ FIX: Mucho más aire bajo la cabecera
+  let cursorY = 40;
 
   // ── B) Tabla 1: Resumen de La Carta ─────────────────────────────────────────
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(27, 97, 116);
   doc.text("Resumen de la Carta", M, cursorY);
-  cursorY += 5; // ✅ FIX: Aire entre título y tabla
+  cursorY += 5;
 
   const summaryAllergens: AllergenId[][] = [];
   const summaryRows = menu.map((dish) => {
@@ -157,7 +159,6 @@ async function exportCartaPDF(
       fontSize: 9,
     },
     alternateRowStyles: { fillColor: [250, 253, 253] },
-    // ✅ FIX: Ancho de columna 1 forzado a 102mm para que los iconos no se aplasten.
     columnStyles: {
       0: { fontStyle: "bold", cellWidth: 80 },
       1: { cellWidth: 102 },
@@ -175,7 +176,7 @@ async function exportCartaPDF(
     },
   });
 
-  cursorY = (doc as unknown as AutoTableDoc).lastAutoTable.finalY + 20; // ✅ FIX: Salto enorme a la Leyenda
+  cursorY = (doc as unknown as AutoTableDoc).lastAutoTable.finalY + 20;
   if (cursorY > pageH - 80) {
     doc.addPage();
     cursorY = 20;
@@ -211,10 +212,10 @@ async function exportCartaPDF(
     if (col >= LEG_COLS) {
       col = 0;
       rowY += LEG_ICON + 5;
-    } // ✅ FIX: Aire entre filas
+    }
   }
 
-  cursorY = rowY + LEG_ICON + 20; // ✅ FIX: Salto enorme al desglose
+  cursorY = rowY + LEG_ICON + 20;
   if (cursorY > pageH - 60) {
     doc.addPage();
     cursorY = 20;
@@ -236,7 +237,7 @@ async function exportCartaPDF(
     doc.setFontSize(10);
     doc.setTextColor(40, 50, 55);
     doc.text(dish.name, M, cursorY);
-    cursorY += 3; // ✅ FIX: Aire entre nombre de plato y su tabla
+    cursorY += 3;
 
     const rowAllergens: AllergenId[][] = [];
     const rows = dish.ingredients.map((ing) => {
@@ -267,7 +268,7 @@ async function exportCartaPDF(
       columnStyles: {
         0: { fontStyle: "bold", cellWidth: 80 },
         1: { cellWidth: 102 },
-      }, // ✅ FIX: Ancho fijo
+      },
       margin: { left: M, right: M },
       didDrawCell: (data) => {
         if (data.section !== "body" || data.column.index !== 1) return;
@@ -275,7 +276,7 @@ async function exportCartaPDF(
       },
     });
 
-    cursorY = (doc as unknown as AutoTableDoc).lastAutoTable.finalY + 12; // ✅ FIX: Separación entre platos
+    cursorY = (doc as unknown as AutoTableDoc).lastAutoTable.finalY + 12;
     if (cursorY > pageH - 30) {
       doc.addPage();
       cursorY = 20;
@@ -367,10 +368,41 @@ export function MenuBuilder() {
 
   const [isExporting, setIsExporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
-  const canSave =
-    draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
+  const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
   const canExport = menu.length > 0 && restaurantName.trim().length > 0;
+
+  // --- PRECARGA INTELIGENTE DEL NOMBRE (SIN BUG) ---
+  useEffect(() => {
+    async function loadName() {
+      if (restaurantName) return; // Si ya hay nombre, no machacamos
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: cartaData } = await supabase
+        .from("cartas")
+        .select("nombre_carta")
+        .eq("empresa_id", user.id)
+        .maybeSingle();
+
+      if (cartaData?.nombre_carta) {
+        setRestaurantName(cartaData.nombre_carta);
+      } else {
+        const { data: empresaData } = await supabase
+          .from("empresas")
+          .select("nombre_restaurante")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (empresaData?.nombre_restaurante) {
+          setRestaurantName(empresaData.nombre_restaurante);
+        }
+      }
+    }
+    loadName();
+  }, []);
 
   async function handleExport() {
     setIsExporting(true);
@@ -383,7 +415,7 @@ export function MenuBuilder() {
               `/icons/allergens/${allergen.toLowerCase()}.png`,
             );
           } catch {
-            /* icon missing — skipped */
+            // ignorar
           }
         }),
       );
@@ -394,78 +426,78 @@ export function MenuBuilder() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-10 px-4">
-      <div className="max-w-4xl mx-auto flex flex-col gap-10">
-        {/* HEADER */}
-        <header className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {" "}
-              {/* Cambiamos gap-3 a gap-4 para darle un respiro al botón */}
-              {/* NUEVO BOTÓN DE ATRÁS */}
-              <Link
-                to="/dashboard"
-                className="p-2 -ml-2 rounded-lg text-surface-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-                title="Volver al Panel"
-              >
-                <ArrowLeft size={20} />
-              </Link>
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30">
-                <ChefHat size={20} className="text-brand-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-surface-800 leading-tight">
-                  Carta de Alérgenos
-                </h1>
-                <p className="text-xs text-surface-500 mt-0.5">
-                  AlergoMenu · Constructor
-                </p>
-              </div>
+    <div className="min-h-screen bg-surface-50 flex flex-col">
+      {/* 1. CABECERA UNIFICADA */}
+      <header className="bg-white border-b border-surface-200 px-4 py-2.5 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
+        <div className="flex items-center gap-2">
+          <Link
+            to="/dashboard"
+            className="p-2 -ml-2 rounded-lg text-surface-500 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="bg-brand-100 p-1.5 rounded-lg text-brand-600 hidden sm:block">
+              <ChefHat size={16} />
             </div>
-            <button
-              id="export-carta-btn"
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              disabled={!canExport || isExporting}
-              title={
-                !restaurantName.trim()
-                  ? "Introduce el nombre del establecimiento"
-                  : !canExport
-                    ? "Añade al menos un plato"
-                    : "Publicar Carta"
-              }
-              className={[
-                "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                canExport && !isExporting
-                  ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:-translate-y-px active:translate-y-0 focus-visible:ring-brand-500"
-                  : "bg-surface-200 text-surface-400 cursor-not-allowed",
-              ].join(" ")}
-            >
-              {isExporting ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <FileDown size={15} />
-              )}
-              {isExporting ? "Generando..." : "Publicar Carta"}
-            </button>
+            <h1 className="text-base sm:text-lg font-bold text-surface-800 truncate max-w-[150px] sm:max-w-none">
+              Carta Digital
+            </h1>
           </div>
+        </div>
 
-          {/* Restaurant name */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            id="export-carta-btn"
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            disabled={!canExport || isExporting}
+            className={[
+              "inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-semibold transition-all duration-200 outline-none",
+              canExport && !isExporting
+                ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:-translate-y-px"
+                : "bg-surface-200 text-surface-400 cursor-not-allowed",
+            ].join(" ")}
+          >
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+            <span className="hidden sm:inline">{isExporting ? "Generando..." : "Publicar Carta"}</span>
+            <span className="sm:hidden">{isExporting ? "..." : "Publicar"}</span>
+          </button>
+          <button
+            onClick={() => setShowInfoModal(true)}
+            className="p-2 -mr-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+            title="Ver ayuda"
+          >
+            <Info size={22} />
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 w-full max-w-4xl mx-auto p-4 sm:p-6 flex flex-col gap-8">
+
+        {/* Nombre del establecimiento (Input simple) */}
+        <div>
+          <label
+            htmlFor="restaurant-name-input"
+            className="block text-xs font-semibold uppercase tracking-wider text-surface-500 mb-2"
+          >
+            Nombre del establecimiento
+          </label>
           <div
             className={[
-              "flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 bg-white",
+              "flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 bg-white shadow-sm",
               restaurantName.trim()
                 ? "border-brand-400 ring-1 ring-brand-300"
                 : "border-surface-300 hover:border-surface-400",
             ].join(" ")}
           >
-            <Building2 size={17} className="shrink-0 text-surface-400" />
+            <Building2 size={18} className="shrink-0 text-surface-400" />
             <input
               id="restaurant-name-input"
               type="text"
               value={restaurantName}
               onChange={(e) => setRestaurantName(e.target.value)}
-              placeholder="Nombre del establecimiento…"
+              placeholder="Ej: Nombre de tu restaurante o título de la carta..."
               maxLength={80}
               className="flex-1 bg-transparent outline-none text-surface-800 placeholder:text-surface-400 text-sm font-medium"
             />
@@ -475,7 +507,7 @@ export function MenuBuilder() {
               </span>
             )}
           </div>
-        </header>
+        </div>
 
         {/* ZONA 1: LA CARTA */}
         <section aria-labelledby="menu-section-label">
@@ -572,7 +604,7 @@ export function MenuBuilder() {
               onChange={(e) => setDraftName(e.target.value)}
               placeholder="Ej: Ensalada de gambas con aguacate…"
               maxLength={120}
-              className="w-full px-5 py-4 rounded-2xl text-lg font-medium outline-none transition-all duration-200 bg-white border border-surface-300 text-surface-800 placeholder:text-surface-400 hover:border-surface-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+              className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all duration-200 bg-white border border-surface-300 text-surface-800 placeholder:text-surface-400 hover:border-surface-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
             <div className="flex justify-end mt-1">
               <span
@@ -606,9 +638,9 @@ export function MenuBuilder() {
                   : "Añadir a la carta"
               }
               className={[
-                "inline-flex items-center gap-2.5 px-7 py-3 rounded-xl text-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                "inline-flex items-center gap-2.5 px-7 py-3 rounded-xl text-sm font-semibold transition-all duration-200 outline-none",
                 canSave
-                  ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:ring-brand-500"
+                  ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:-translate-y-px active:translate-y-0 active:scale-[0.98]"
                   : "bg-surface-200 text-surface-400 cursor-not-allowed",
               ].join(" ")}
             >
@@ -617,7 +649,8 @@ export function MenuBuilder() {
             </button>
           </div>
         </section>
-      </div>
+      </main>
+
       <PublishModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -626,7 +659,42 @@ export function MenuBuilder() {
           handleExport();
         }}
         platos={menu}
+        restaurantName={restaurantName}
       />
+
+      {/* MODAL DE AYUDA */}
+      {showInfoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col slide-in-from-bottom-4">
+            <div className="px-5 py-4 border-b border-surface-200 flex justify-between items-center bg-brand-50">
+              <div className="flex items-center gap-2 text-brand-700">
+                <Info size={20} />
+                <h3 className="font-bold">¿Cómo funciona?</h3>
+              </div>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="text-surface-400 hover:text-surface-700 transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 text-surface-600 text-sm leading-relaxed space-y-4">
+              <p>
+                Escribe el nombre de tu carta y comienza a crear platos añadiendo ingredientes.
+              </p>
+              <p>
+                El sistema detectará automáticamente los alérgenos presentes. Al hacer clic en <strong>Publicar Carta</strong>, podrás generar tu PDF o el QR digital.
+              </p>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="w-full mt-2 bg-brand-500 hover:bg-brand-600 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Entendido, continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

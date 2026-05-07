@@ -23,6 +23,7 @@ export function PublicMenu() {
                     .select(`
             platos,
             actualizado_en,
+            nombre_carta,
             empresas (
               nombre_restaurante
             )
@@ -35,7 +36,9 @@ export function PublicMenu() {
                 // 2. Guardamos los datos en el estado local
                 setPlatos(data.platos);
                 const empresa = Array.isArray(data.empresas) ? data.empresas[0] : data.empresas;
-                setNombreRestaurante(empresa?.nombre_restaurante || "Carta de Alérgenos");
+
+                // 3. LA MAGIA DE LA PRIORIDAD: Primero el nombre de la carta, luego el de la empresa.
+                setNombreRestaurante(data.nombre_carta || empresa?.nombre_restaurante || "Carta de Alérgenos");
 
             } catch (err) {
                 console.error("Error cargando carta:", err);

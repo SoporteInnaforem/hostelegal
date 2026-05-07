@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, QrCode, LogOut, Loader2 } from "lucide-react";
+import { FileText, QrCode, LogOut, Loader2, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
@@ -55,7 +55,7 @@ export function Dashboard() {
             </nav>
 
             {/* Contenido Principal */}
-            <main className="max-w-5xl mx-auto px-6 py-12">
+            <main className="max-w-6xl mx-auto px-6 py-12">
                 <h2 className="text-3xl font-extrabold text-surface-800 mb-2 flex items-center gap-3">
                     {isLoading ? (
                         <>
@@ -67,7 +67,7 @@ export function Dashboard() {
                 </h2>
                 <p className="text-surface-500 mb-10">Selecciona la herramienta que deseas utilizar hoy.</p>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                     {/* Opción A: Documentación Normativa */}
                     <Link
@@ -77,13 +77,13 @@ export function Dashboard() {
                         <div className="w-14 h-14 bg-surface-100 rounded-xl flex items-center justify-center text-surface-600 group-hover:bg-brand-50 group-hover:text-brand-500 transition-colors mb-6">
                             <FileText size={28} />
                         </div>
-                        <h3 className="text-xl font-bold text-surface-800 mb-3">Generador de Documentación</h3>
+                        <h3 className="text-xl font-bold text-surface-800 mb-3">Generador APPCC</h3>
                         <p className="text-surface-500 text-sm flex-1">
                             Completa el formulario interactivo para generar tu PDF de cumplimiento normativo rellenado automáticamente a partir de tu plantilla base.
                         </p>
                     </Link>
 
-                    {/* Opción B: Constructor de Carta (Tu App de React) */}
+                    {/* Opción B: Constructor de Carta */}
                     <Link
                         to="/constructor"
                         className="group bg-white rounded-2xl p-8 border border-surface-200 shadow-sm hover:shadow-xl hover:border-brand-300 transition-all cursor-pointer text-left flex flex-col"
@@ -94,6 +94,20 @@ export function Dashboard() {
                         <h3 className="text-xl font-bold text-surface-800 mb-3">Carta de Alérgenos Digital</h3>
                         <p className="text-surface-500 text-sm flex-1">
                             Diseña tu carta plato a plato, exporta el PDF para las mesas y genera un código QR para que tus clientes lo escaneen desde sus móviles.
+                        </p>
+                    </Link>
+
+                    {/* Opción C: Repositorio (NUEVA) */}
+                    <Link
+                        to="/repositorio"
+                        className="group bg-white rounded-2xl p-8 border border-surface-200 shadow-sm hover:shadow-xl hover:border-brand-300 transition-all cursor-pointer text-left flex flex-col"
+                    >
+                        <div className="w-14 h-14 bg-surface-100 rounded-xl flex items-center justify-center text-surface-600 group-hover:bg-brand-50 group-hover:text-brand-500 transition-colors mb-6">
+                            <Download size={28} />
+                        </div>
+                        <h3 className="text-xl font-bold text-surface-800 mb-3">Repositorio Normativo</h3>
+                        <p className="text-surface-500 text-sm flex-1">
+                            Accede y descarga al instante cartelería obligatoria, manuales de buenas prácticas y plantillas de registro para tu establecimiento.
                         </p>
                     </Link>
 

@@ -9,6 +9,7 @@ import { Dashboard } from "./features/dashboard/Dashboard";
 import { MenuBuilder } from "./features/dish-builder/MenuBuilder";
 import { PublicMenu } from "./features/public-menu/PublicMenu";
 import { Documentation } from "./features/documentation/Documentation";
+import { Repository } from "./features/repository/Repository";
 import { Loader2 } from "lucide-react";
 
 export default function App() {
@@ -90,6 +91,14 @@ export default function App() {
           path="/documentacion"
           element={
             session ? <Documentation /> : <Navigate to="/login" replace />
+          }
+        />
+
+        {/* Ruta Repositorio (NUEVA): Bloqueada si NO tienes sesión */}
+        <Route
+          path="/repositorio"
+          element={
+            session ? <Repository /> : <Navigate to="/login" replace />
           }
         />
       </Routes>

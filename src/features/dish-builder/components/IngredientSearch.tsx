@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, PackageSearch } from "lucide-react";
+import { Search, PackageSearch, X } from "lucide-react";
 import { useMenuStore } from "../store/useMenuStore";
 import { INGREDIENTS_DB } from "../../../data/ingredients";
 import type { DbIngredient } from "../../../data/ingredients";
@@ -76,6 +76,7 @@ export function IngredientSearch() {
       case "Escape":
         setIsOpen(false);
         setActiveIndex(-1);
+        inputRef.current?.blur(); // Quita el foco al pulsar Escape
         break;
     }
   }
@@ -95,9 +96,7 @@ export function IngredientSearch() {
             : "border-surface-300 hover:border-surface-400",
         ].join(" ")}
       >
-        <span aria-hidden="true" className="shrink-0 text-surface-400">
-          <Search size={18} />
-        </span>
+        <Search size={18} className="text-surface-400 shrink-0" />
 
         <input
           ref={inputRef}
@@ -118,6 +117,24 @@ export function IngredientSearch() {
           aria-expanded={isOpen}
           className="flex-1 bg-transparent outline-none text-surface-800 placeholder:text-surface-400 text-sm font-medium leading-tight [&::-webkit-search-cancel-button]:hidden"
         />
+
+        {/* BOTÓN X PARA CERRAR/LIMPIAR EN MÓVIL */}
+        {(query || isOpen) && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setQuery("");
+              setIsOpen(false);
+              inputRef.current?.blur(); // Esto esconde el teclado en móviles
+            }}
+            className="p-1 rounded-md text-surface-400 hover:text-surface-700 bg-surface-100 hover:bg-surface-200 shrink-0 transition-colors"
+            title="Cerrar buscador"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {isOpen && (

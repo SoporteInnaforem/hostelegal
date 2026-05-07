@@ -8,10 +8,11 @@ interface PublishModalProps {
     isOpen: boolean;
     onClose: () => void;
     onGeneratePDF: () => void;
-    platos: any[]; // Sustituye "any[]" por tu tipo exacto de plato si tienes TypeScript estricto
+    platos: any[];
+    restaurantName: string;
 }
 
-export function PublishModal({ isOpen, onClose, onGeneratePDF, platos }: PublishModalProps) {
+export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restaurantName }: PublishModalProps) {
     const [isPublishing, setIsPublishing] = useState(false);
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -23,18 +24,18 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos }: Publish
         setError(null);
 
         try {
-            // 1. Obtener el usuario actual
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("No hay sesión activa");
 
-            // 2. Guardar en Supabase. 
-            // Usamos upsert para que si ya tenía carta, se actualice la misma y el QR no cambie.
+            // ¡FUERA EL UPDATE PELIGROSO A EMPRESAS!
+            // Ahora lo guardamos directamente dentro del "upsert" de la tabla cartas.
             const { data, error: dbError } = await supabase
                 .from('cartas')
                 .upsert(
                     {
                         empresa_id: user.id,
-                        platos: platos
+                        platos: platos,
+                        nombre_carta: restaurantName.trim() // <-- NUEVA COLUMNA INOFENSIVA
                     },
                     { onConflict: 'empresa_id' }
                 )
@@ -43,8 +44,6 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos }: Publish
 
             if (dbError) throw dbError;
 
-            // 3. Crear la URL pública basada en la ID de la carta generada
-            // window.location.origin pilla tu dominio automáticamente (localhost o Vercel)
             const url = `${window.location.origin}/carta/${data.id}`;
             setPublicUrl(url);
 

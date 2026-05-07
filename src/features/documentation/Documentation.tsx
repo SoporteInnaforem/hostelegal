@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -15,7 +16,8 @@ export function Documentation() {
   const [userId, setUserId] = useState<string | null>(null);
   const [docsGenerados, setDocsGenerados] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [formSubmitted, setFormSubmitted] = useState(false); // NUEVO ESTADO
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Límite gratuito por empresa
   const LIMITE_DOCS = 5;
@@ -130,57 +132,51 @@ export function Documentation() {
   const tallyUrl = `https://tally.so/r/441ZRY?transparentBackground=1&empresa_id=${userId}`;
 
   return (
-    <div className="min-h-screen bg-surface-50 flex flex-col">
-      <header className="bg-white border-b border-surface-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
-        {/* ... (Tu cabecera se mantiene igual) ... */}
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/dashboard"
-              className="p-2 -ml-2 rounded-lg text-surface-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="bg-brand-100 p-2 rounded-lg text-brand-600">
-                <FileText size={20} />
-              </div>
-              <h1 className="text-xl font-bold text-surface-800">
-                Plan APPCC y Autocontrol
-              </h1>
+    // min-h-screen cambiado por h-screen para evitar scroll doble
+    <div className="h-screen bg-surface-50 flex flex-col overflow-hidden">
+
+      {/* 1. CABECERA SÚPER MINIMALISTA */}
+      <header className="bg-white border-b border-surface-200 px-4 py-2.5 flex-none z-10 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link
+            to="/dashboard"
+            className="p-2 -ml-2 rounded-lg text-surface-500 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="bg-brand-100 p-1.5 rounded-lg text-brand-600 hidden sm:block">
+              <FileText size={16} />
             </div>
+            {/* Ocultamos el título largo en móviles muy pequeños para dar espacio */}
+            <h1 className="text-base sm:text-lg font-bold text-surface-800 truncate max-w-[150px] sm:max-w-none">
+              Plan APPCC
+            </h1>
           </div>
+        </div>
+
+        {/* CONTADOR E INFO A LA DERECHA */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold bg-surface-100 text-surface-600 px-2.5 py-1.5 rounded-lg border border-surface-200 shadow-sm whitespace-nowrap">
+            {LIMITE_DOCS - docsGenerados} / {LIMITE_DOCS} <span className="hidden sm:inline">docs</span>
+          </span>
+          <button
+            onClick={() => setShowInfoModal(true)}
+            className="p-2 -mr-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+            title="Ver ayuda"
+          >
+            <Info size={22} />
+          </button>
         </div>
       </header>
 
-      <div className="bg-brand-50 border-b border-brand-200">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-start gap-3 text-brand-700">
-          <Info size={20} className="shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm mb-2">
-              <strong>¿Cómo funciona?</strong> Rellena el siguiente formulario.
-              Al finalizar, procesaremos la información y{" "}
-              <strong>
-                recibirás en tu correo el documento oficial en PDF
-              </strong>
-              .
-            </p>
-            <span className="inline-block text-xs font-bold bg-white text-brand-700 px-2 py-1 rounded-md border border-brand-200 shadow-sm">
-              Documentos disponibles: {LIMITE_DOCS - docsGenerados} de{" "}
-              {LIMITE_DOCS}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 flex flex-col relative">
+      {/* 2. IFRAME A PANTALLA COMPLETA (Sin padding) */}
+      <main className="flex-1 w-full relative bg-white">
         {!iframeLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center z-0">
             <div className="animate-pulse text-surface-400 flex flex-col items-center gap-2">
               <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm font-medium">
-                Cargando formulario oficial...
-              </p>
+              <p className="text-sm font-medium">Cargando formulario...</p>
             </div>
           </div>
         )}
@@ -193,7 +189,7 @@ export function Documentation() {
           marginHeight={0}
           marginWidth={0}
           title="Sistema de Autocontrol APPCC"
-          className="flex-1 w-full min-h-[800px] rounded-xl shadow-sm border border-surface-200 bg-white"
+          className="absolute inset-0 w-full h-full border-none z-10"
           onLoad={() => setIframeLoaded(true)}
           style={{
             opacity: iframeLoaded ? 1 : 0,
@@ -201,6 +197,40 @@ export function Documentation() {
           }}
         ></iframe>
       </main>
+
+      {/* 3. MODAL DE AYUDA (Se superpone a todo) */}
+      {showInfoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col slide-in-from-bottom-4">
+            <div className="px-5 py-4 border-b border-surface-200 flex justify-between items-center bg-brand-50">
+              <div className="flex items-center gap-2 text-brand-700">
+                <Info size={20} />
+                <h3 className="font-bold">¿Cómo funciona?</h3>
+              </div>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="text-surface-400 hover:text-surface-700 transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 text-surface-600 text-sm leading-relaxed space-y-4">
+              <p>
+                Rellena el formulario oficial de Tally con los datos de tu establecimiento.
+              </p>
+              <p>
+                Al finalizar, procesaremos la información y <strong>recibirás en tu correo el documento oficial en formato PDF</strong> listo para imprimir o presentar ante Sanidad.
+              </p>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="w-full mt-2 bg-brand-500 hover:bg-brand-600 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Entendido, continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
