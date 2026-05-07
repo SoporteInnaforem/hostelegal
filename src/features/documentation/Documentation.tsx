@@ -136,7 +136,7 @@ export function Documentation() {
     <div className="h-screen bg-surface-50 flex flex-col overflow-hidden">
 
       {/* 1. CABECERA SÚPER MINIMALISTA */}
-      <header className="bg-white border-b border-surface-200 px-4 py-2.5 flex-none z-10 shadow-sm flex items-center justify-between">
+      <header className="bg-white border-b border-surface-200 px-4 sm:px-6 h-16 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
         <div className="flex items-center gap-2">
           <Link
             to="/dashboard"
@@ -150,7 +150,7 @@ export function Documentation() {
             </div>
             {/* Ocultamos el título largo en móviles muy pequeños para dar espacio */}
             <h1 className="text-base sm:text-lg font-bold text-surface-800 truncate max-w-[150px] sm:max-w-none">
-              Plan APPCC
+              Plan de Autocontrol Sanitario Simplificado
             </h1>
           </div>
         </div>

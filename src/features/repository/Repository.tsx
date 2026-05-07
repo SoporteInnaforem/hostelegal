@@ -9,7 +9,8 @@ interface DriveFile {
     id: string;
     name: string;
     mimeType: string;
-    webViewLink: string;
+    // 1. CAMBIO: Usamos webContentLink en lugar de webViewLink para descarga directa
+    webContentLink: string;
 }
 
 export function Repository() {
@@ -20,8 +21,8 @@ export function Repository() {
     useEffect(() => {
         async function fetchDriveFiles() {
             try {
-                // Hacemos la llamada a la API de Google Drive
-                const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,webViewLink)&key=${GOOGLE_API_KEY}`;
+                // 2. CAMBIO: En los fields de la URL pedimos 'webContentLink'
+                const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,webContentLink)&key=${GOOGLE_API_KEY}`;
 
                 const response = await fetch(url);
 
@@ -31,7 +32,6 @@ export function Repository() {
 
                 const data = await response.json();
 
-                // Filtramos para asegurarnos de que no muestre carpetas internas, solo archivos
                 const filesOnly = data.files.filter((f: DriveFile) => f.mimeType !== "application/vnd.google-apps.folder");
 
                 setArchivos(filesOnly);
@@ -46,17 +46,15 @@ export function Repository() {
         fetchDriveFiles();
     }, []);
 
-    // Función para elegir el icono según el tipo de archivo de Drive
     const getFileIcon = (mimeType: string) => {
         if (mimeType.includes("pdf")) return <FileText size={24} />;
         if (mimeType.includes("image")) return <FileImage size={24} />;
-        return <File size={24} />; // Icono por defecto (Word, Excel, etc)
+        return <File size={24} />;
     };
 
     return (
         <div className="min-h-screen bg-surface-50 flex flex-col">
-            {/* Cabecera unificada */}
-            <header className="bg-white border-b border-surface-200 px-4 py-2.5 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
+            <header className="bg-white border-b border-surface-200 px-4 sm:px-6 h-16 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
                 <div className="flex items-center gap-2">
                     <Link
                         to="/dashboard"
@@ -69,13 +67,12 @@ export function Repository() {
                             <Download size={16} />
                         </div>
                         <h1 className="text-base sm:text-lg font-bold text-surface-800">
-                            Repositorio Normativo
+                            Documentación
                         </h1>
                     </div>
                 </div>
             </header>
 
-            {/* Contenido Principal */}
             <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-surface-800 mb-2">Documentación de Interés</h2>
@@ -84,7 +81,6 @@ export function Repository() {
                     </p>
                 </div>
 
-                {/* Estados de Carga y Error */}
                 {isLoading && (
                     <div className="flex flex-col items-center justify-center py-20 text-brand-500">
                         <Loader2 size={40} className="animate-spin mb-4" />
@@ -99,7 +95,6 @@ export function Repository() {
                     </div>
                 )}
 
-                {/* Grid de Archivos */}
                 {!isLoading && !error && archivos.length === 0 && (
                     <div className="text-center py-20 text-surface-500">
                         <p>No hay documentos disponibles en este momento.</p>
@@ -113,24 +108,27 @@ export function Repository() {
                                 key={doc.id}
                                 className="bg-white rounded-2xl p-5 border border-surface-200 shadow-sm hover:shadow-md transition-shadow flex flex-col"
                             >
-                                <div className="w-12 h-12 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center mb-4">
+                                <div className="w-12 h-12 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center mb-4 shrink-0">
                                     {getFileIcon(doc.mimeType)}
                                 </div>
 
-                                {/* Limpiamos la extensión del nombre (ej: "Cartel.pdf" -> "Cartel") para que quede más limpio */}
-                                <h3 className="font-bold text-surface-800 mb-4 leading-tight">
+                                {/* 3. CAMBIO: Añadido break-all y line-clamp para que textos sin espacios no rompan el grid */}
+                                <h3
+                                    className="font-bold text-surface-800 mb-4 leading-tight break-all line-clamp-2"
+                                    title={doc.name} // Al pasar el ratón se verá el nombre completo
+                                >
                                     {doc.name.replace(/\.[^/.]+$/, "")}
                                 </h3>
 
                                 <div className="mt-auto">
                                     <a
-                                        href={doc.webViewLink}
+                                        href={doc.webContentLink} // 4. CAMBIO: Enlace de descarga directa
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-surface-100 hover:bg-brand-50 text-surface-700 hover:text-brand-700 rounded-xl font-medium text-sm transition-colors"
                                     >
                                         <Download size={16} />
-                                        Ver y Descargar
+                                        Descargar
                                     </a>
                                 </div>
                             </div>

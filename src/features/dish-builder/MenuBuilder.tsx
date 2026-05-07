@@ -428,7 +428,7 @@ export function MenuBuilder() {
   return (
     <div className="min-h-screen bg-surface-50 flex flex-col">
       {/* 1. CABECERA UNIFICADA */}
-      <header className="bg-white border-b border-surface-200 px-4 py-2.5 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
+      <header className="bg-white border-b border-surface-200 px-4 sm:px-6 h-16 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
         <div className="flex items-center gap-2">
           <Link
             to="/dashboard"
@@ -446,14 +446,14 @@ export function MenuBuilder() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3">
           <button
             id="export-carta-btn"
             type="button"
             onClick={() => setIsModalOpen(true)}
             disabled={!canExport || isExporting}
             className={[
-              "inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-semibold transition-all duration-200 outline-none",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 outline-none",
               canExport && !isExporting
                 ? "bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:-translate-y-px"
                 : "bg-surface-200 text-surface-400 cursor-not-allowed",
