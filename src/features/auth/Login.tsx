@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { AlertCircle, Loader2, Lock } from "lucide-react";
+import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import hostelegal from "../../assets/hostelegal.png";
 
 export function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -25,21 +27,26 @@ export function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-surface-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="mx-auto w-12 h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Lock className="text-white" size={24} />
-                </div>
-                <h2 className="mt-6 text-center text-3xl font-extrabold text-surface-800">
-                    AlergoMenú Empresas
-                </h2>
-                <p className="mt-2 text-center text-sm text-surface-500">
-                    Acceso exclusivo para restaurantes asociados
-                </p>
-            </div>
-
+        <div className="min-h-screen bg-surface-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-surface-200">
+                {/* Tarjeta principal que ahora envuelve todo */}
+                <div className="bg-white py-10 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-surface-200">
+
+                    {/* Encabezado con Logo integrado */}
+                    <div className="flex flex-col items-center mb-8">
+                        <img
+                            src={hostelegal}
+                            alt="Hostelegal App"
+                            className="h-14 w-auto mb-5 drop-shadow-sm"
+                        />
+                        <h2 className="text-center text-2xl font-extrabold text-surface-800">
+                            Acceso Empresas
+                        </h2>
+                        <p className="mt-2 text-center text-sm text-surface-500">
+                            Gestión normativa y cartas digitales
+                        </p>
+                    </div>
+
                     <form className="space-y-6" onSubmit={handleLogin}>
                         {error && (
                             <div className="bg-danger-50 text-danger-600 p-3 rounded-lg flex items-center gap-2 text-sm">
@@ -66,14 +73,24 @@ export function Login() {
                             <label className="block text-sm font-medium text-surface-700">
                                 Contraseña
                             </label>
-                            <input
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-surface-300 rounded-lg shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 transition-colors"
-                                placeholder="••••••••"
-                            />
+                            {/* Contenedor relativo para el botón del ojo */}
+                            <div className="relative mt-1">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="block w-full pl-3 pr-10 py-2 border border-surface-300 rounded-lg shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                                    placeholder="••••••••"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-surface-400 hover:text-surface-600 focus:outline-none"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
 
                         <button

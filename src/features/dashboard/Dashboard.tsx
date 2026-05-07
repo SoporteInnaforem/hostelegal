@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FileText, QrCode, LogOut, Loader2, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import hostelegal from "../../assets/hostelegal.png";
 
 export function Dashboard() {
     const [nombreEmpresa, setNombreEmpresa] = useState<string>("");
@@ -43,14 +44,14 @@ export function Dashboard() {
     return (
         <div className="min-h-screen bg-surface-50">
             {/* Navbar Simple */}
-            <nav className="bg-white border-b border-surface-200 px-6 py-4 flex justify-between items-center">
-                <h1 className="text-xl font-bold text-brand-500">AlergoMenú</h1>
+            <nav className="bg-white border-b border-surface-200 px-4 sm:px-6 py-3 flex-none z-20 shadow-sm flex items-center justify-between sticky top-0">
+                <img src={hostelegal} alt="Hostelegal App" className="h-8 w-auto" />
                 <button
                     onClick={handleLogout}
                     className="text-surface-500 hover:text-danger-600 flex items-center gap-2 text-sm font-medium transition-colors"
                 >
-                    <LogOut size={16} />
-                    Cerrar Sesión
+                    <LogOut size={18} />
+                    <span className="hidden sm:inline">Cerrar Sesión</span>
                 </button>
             </nav>
 

@@ -37,10 +37,10 @@ const SIZE: Record<AllergenIconSize, { px: number; tw: string; fb: string }> = {
 export function AllergenIcon({ allergen, size = 'md', className = '' }: AllergenIconProps) {
   const [errored, setErrored] = useState(false);
 
-  const label    = ALLERGEN_LABEL[allergen as AllergenId] ?? allergen;
-  const src      = `/icons/allergens/${allergen.toLowerCase()}.png`;
+  const label = ALLERGEN_LABEL[allergen as AllergenId] ?? allergen;
+  const src = `/icons/allergens/${allergen.toLowerCase()}.png`;
   const initials = getInitials(allergen);
-  const s        = SIZE[size];
+  const s = SIZE[size];
 
   if (errored) {
     return (
