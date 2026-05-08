@@ -287,7 +287,7 @@ async function exportCartaPDF(
   doc.setFont("helvetica", "italic");
   doc.setFontSize(7.5);
   doc.setTextColor(130, 150, 160);
-  doc.text(`Generado el ${now} · AlergoMenu`, M, pageH - 8);
+  doc.text(`Generado el ${now} · Hostelegal`, M, pageH - 8);
   doc.text("Página 1", pageW - M, pageH - 8, { align: "right" });
 
   const safeName =

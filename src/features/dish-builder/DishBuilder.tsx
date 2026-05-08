@@ -9,20 +9,20 @@ import { IngredientTable } from './components/IngredientTable';
 // ─── Allergen label map (mirrors IngredientTable) ─────────────────────────────
 
 const ALLERGEN_LABEL: Record<string, string> = {
-  GLUTEN:            'Gluten',
-  CRUSTACEOS:        'Crustáceos',
-  HUEVOS:            'Huevos',
-  PESCADO:           'Pescado',
-  CACAHUETES:        'Cacahuetes',
-  SOJA:              'Soja',
-  LACTEOS:           'Lácteos',
+  GLUTEN: 'Gluten',
+  CRUSTACEOS: 'Crustáceos',
+  HUEVOS: 'Huevos',
+  PESCADO: 'Pescado',
+  CACAHUETES: 'Cacahuetes',
+  SOJA: 'Soja',
+  LACTEOS: 'Lácteos',
   FRUTOS_DE_CASCARA: 'Frutos de cáscara',
-  APIO:              'Apio',
-  MOSTAZA:           'Mostaza',
-  SESAMO:            'Sésamo',
-  SULFITOS:          'Sulfitos',
-  ALTRAMUCES:        'Altramuces',
-  MOLUSCOS:          'Moluscos',
+  APIO: 'Apio',
+  MOSTAZA: 'Mostaza',
+  SESAMO: 'Sésamo',
+  SULFITOS: 'Sulfitos',
+  ALTRAMUCES: 'Altramuces',
+  MOLUSCOS: 'Moluscos',
 };
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ function exportPDF(dishName: string, ingredients: ReturnType<typeof useDishStore
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text('AlergoMenu — Ficha Técnica', 14, 14);
+  doc.text('Hostelegal — Ficha Técnica', 14, 14);
 
   // ── Dish title ───────────────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold');
@@ -104,7 +104,7 @@ function exportPDF(dishName: string, ingredients: ReturnType<typeof useDishStore
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(180, 180, 200);
-  doc.text('Documento generado automáticamente por AlergoMenu.', 14, pageH - 10);
+  doc.text('Documento generado automáticamente por Hostelegal.', 14, pageH - 10);
   doc.text(`Página 1`, pageW - 14, pageH - 10, { align: 'right' });
 
   // ── Save ─────────────────────────────────────────────────────────────────────
@@ -115,10 +115,10 @@ function exportPDF(dishName: string, ingredients: ReturnType<typeof useDishStore
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DishBuilder() {
-  const dishName     = useDishStore((s) => s.dishName);
-  const setDishName  = useDishStore((s) => s.setDishName);
-  const ingredients  = useDishStore((s) => s.ingredients);
-  const resetDish    = useDishStore((s) => s.resetDish);
+  const dishName = useDishStore((s) => s.dishName);
+  const setDishName = useDishStore((s) => s.setDishName);
+  const ingredients = useDishStore((s) => s.ingredients);
+  const resetDish = useDishStore((s) => s.resetDish);
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -155,7 +155,7 @@ export function DishBuilder() {
                 Constructor de Plato
               </h1>
               <p className="text-xs text-surface-500 mt-0.5">
-                AlergoMenu · Ficha Técnica
+                Hostelegal · Ficha Técnica
               </p>
             </div>
           </div>
@@ -250,11 +250,11 @@ export function DishBuilder() {
               'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900',
               canExport && !isExporting
                 ? [
-                    'bg-brand-600 hover:bg-brand-500 text-white',
-                    'shadow-lg shadow-brand-900/50 hover:shadow-brand-800/60',
-                    'hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
-                    'focus-visible:ring-brand-500',
-                  ].join(' ')
+                  'bg-brand-600 hover:bg-brand-500 text-white',
+                  'shadow-lg shadow-brand-900/50 hover:shadow-brand-800/60',
+                  'hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
+                  'focus-visible:ring-brand-500',
+                ].join(' ')
                 : 'bg-surface-700 text-surface-500 cursor-not-allowed focus-visible:ring-surface-600',
             ].join(' ')}
             title={!canExport ? 'Añade al menos un ingrediente para exportar' : 'Exportar ficha técnica en PDF'}
