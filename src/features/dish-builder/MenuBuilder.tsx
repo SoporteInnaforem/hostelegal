@@ -31,6 +31,19 @@ const BRAND_RGB: [number, number, number] = [27, 97, 116];
 
 // ─── svgUrlToBase64 ───────────────────────────────────────────────────────────
 
+/**
+ * Convierte una URL de imagen (PNG/SVG) a un string Base64 renderizándola
+ * en un canvas HTML.
+ *
+ * Por qué es necesario:
+ * jsPDF no puede incluir imágenes referenciadas por URL externa (CORS) ni
+ * leer SVG directamente. Al rasterizar cada icono de alérgeno en un canvas
+ * de 64×64px y exportarlo como PNG Base64, podemos incrustarlo directamente
+ * en el PDF sin dependencias externas ni peticiones adicionales.
+ *
+ * @param url - URL pública de la imagen (debe ser accesible sin CORS)
+ * @returns Promesa que resuelve con el string Base64 en formato `image/png`
+ */
 async function imgUrlToBase64(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -65,6 +78,20 @@ async function imgUrlToBase64(url: string): Promise<string> {
 type IconMap = Partial<Record<string, string>>;
 type AutoTableDoc = { lastAutoTable: { finalY: number } };
 
+/**
+ * Pinta los iconos de alérgenos dentro de una celda de la tabla jsPDF.
+ *
+ * Se invoca desde el callback `didDrawCell` de jsPDF-Autotable, que proporciona
+ * las coordenadas exactas de cada celda ya renderizada. Los iconos se pintan
+ * de izquierda a derecha, deteniéndose si se llega al borde derecho de la
+ * celda para evitar desbordamiento visual.
+ *
+ * @param doc      - Instancia activa del documento jsPDF
+ * @param data     - Datos de la celda proporcionados por Autotable
+ * @param allergens - IDs de los alérgenos a dibujar en esta fila
+ * @param iconMap  - Mapa `allergenId → Base64` pre-generado por `imgUrlToBase64`
+ * @param iconMm   - Tamaño del icono en milímetros (unidad del documento)
+ */
 function drawIconsInCell(
   doc: jsPDF,
   data: Parameters<
@@ -89,6 +116,23 @@ function drawIconsInCell(
 
 // ─── exportCartaPDF ───────────────────────────────────────────────────────────
 
+/**
+ * Genera y descarga el PDF de la carta de alérgenos del restaurante.
+ *
+ * Estructura del PDF:
+ * A) Cabecera con nombre del establecimiento y referencia al Reglamento UE 1169/2011.
+ * B) Tabla resumen: un plato por fila con sus iconos de alérgenos.
+ * C) Leyenda visual de los 14 alérgenos reconocidos.
+ * D) Desglose por plato: una tabla por plato con ingredientes y sus alérgenos.
+ *
+ * Antes de generar el PDF, se precargan TODOS los iconos en paralelo con
+ * `Promise.all` para que la generación sea rápida y no bloquee la UI durante
+ * múltiples round-trips secuenciales.
+ *
+ * @param restaurantName - Nombre del establecimiento para la cabecera
+ * @param menu           - Lista de platos confirmados en la carta
+ * @param iconMap        - Mapa `allergenId → Base64` de todos los iconos
+ */
 async function exportCartaPDF(
   restaurantName: string,
   menu: Dish[],
@@ -300,6 +344,21 @@ async function exportCartaPDF(
 
 // ─── MenuRow ──────────────────────────────────────────────────────────────────
 
+/**
+ * Fila de la tabla de la carta que representa un plato comprometido.
+ *
+ * Implementa dos patrones de UX importantes:
+ *
+ * 1. **Doble confirmación para eliminar**: el primer clic cambia el botón a
+ *    "Confirmar" durante 2 segundos. Si el usuario no confirma, se cancela
+ *    automáticamente. Evita borrados accidentales, muy relevante en móvil.
+ *
+ * 2. **Guardia de borrador sucio al editar**: antes de cargar un plato en el
+ *    editor, comprueba si hay un plato DIFERENTE a medias en el borrador
+ *    (`isDraftDirty && isEditingDifferentDish`). Si es así, muestra un modal
+ *    de advertencia para que el usuario decida si descarta su trabajo o cancela.
+ *    Sin esta guardia, el usuario perdería cambios no guardados silenciosamente.
+ */
 function MenuRow({ dish }: { dish: Dish }) {
   const removeDishFromMenu = useMenuStore((s) => s.removeDishFromMenu);
   const draftDish = useMenuStore((s) => s.draftDish);
@@ -420,6 +479,19 @@ function MenuRow({ dish }: { dish: Dish }) {
 
 // ─── MenuBuilder ──────────────────────────────────────────────────────────────
 
+/**
+ * Componente principal del constructor de cartas de alérgenos.
+ *
+ * Lógica de negocio:
+ * - Precarga inteligente del nombre: al montar, busca primero el `nombre_carta`
+ *   guardado previamente en la tabla `cartas`. Si no existe, usa el
+ *   `nombre_restaurante` del perfil. Solo precarga si Zustand aún no tiene
+ *   un nombre (evita sobreescribir cambios que el usuario ya escribió).
+ * - El botón "Publicar Carta" abre un modal que ofrece dos opciones: generar
+ *   el PDF o guardar la carta en Supabase para obtener el QR público.
+ * - `canSave` y `canExport` son variables derivadas del estado del store que
+ *   habilitan/deshabilitan los CTA para guiar al usuario paso a paso.
+ */
 export function MenuBuilder() {
   const menu = useMenuStore((s) => s.menu);
   const draftDish = useMenuStore((s) => s.draftDish);
@@ -437,7 +509,17 @@ export function MenuBuilder() {
   const canExport = menu.length > 0 && restaurantName.trim().length > 0;
   const isEditing = Boolean(draftDish.id); // Si hay ID, estamos editando
 
-  // --- PRECARGA INTELIGENTE DEL NOMBRE (SIN BUG) ---
+  /**
+   * Precarga el nombre del establecimiento en el store al montar el componente.
+   *
+   * Prioridad de carga (de más específico a más genérico):
+   * 1. `cartas.nombre_carta`: el usuario ya guardó un nombre personalizado para
+   *    esta carta (e.g. "Menú Primavera 2025").
+   * 2. `empresas.nombre_restaurante`: el nombre por defecto del perfil del local.
+   *
+   * La condición `if (restaurantName) return` es la guardia que evita sobreescribir
+   * el estado del store si el usuario ya ha escrito algo en la sesión actual.
+   */
   useEffect(() => {
     async function loadName() {
       if (restaurantName) return;
@@ -468,6 +550,13 @@ export function MenuBuilder() {
     loadName();
   }, []);
 
+  /**
+   * Lanza la exportación del PDF de la carta.
+   *
+   * Precarga todos los iconos de alérgenos en paralelo antes de llamar al
+   * generador. Los iconos que fallen (e.g. por un PNG faltante) se omiten
+   * silenciosamente: el PDF se genera igualmente, pero esa celda quedará vacía.
+   */
   async function handleExport() {
     setIsExporting(true);
     try {

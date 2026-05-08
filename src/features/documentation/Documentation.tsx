@@ -11,6 +11,23 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
+/**
+ * Módulo de generación del Plan de Autocontrol Sanitario (APPCC/PASS).
+ *
+ * Lógica de negocio:
+ * - Embebe un formulario de Tally (servicio externo) en un `<iframe>`. Tally
+ *   procesa las respuestas, llama a una automatización externa (Make.com) que
+ *   genera el PDF y lo envía por email al restaurante.
+ * - Para detectar que el usuario ha completado el formulario dentro del iframe,
+ *   se usa la API nativa `window.postMessage`. Tally emite el evento
+ *   `Tally.FormSubmitted` como mensaje JSON al contexto padre.
+ * - Se aplica un límite de {LIMITE_DOCS} documentos por empresa para el plan
+ *   gratuito. El contador `documentos_generados` se guarda en la tabla `empresas`.
+ *   Si supera el límite, se bloquea el acceso al iframe y se muestra un CTA
+ *   para contactar con Hostelegal y ampliar el plan.
+ * - El `empresa_id` se pasa como parámetro de query al iframe de Tally para
+ *   que la automatización de Make.com pueda asociar el PDF al cliente correcto.
+ */
 export function Documentation() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -19,9 +36,19 @@ export function Documentation() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
-  // Límite gratuito por empresa
+  /**
+   * Número máximo de documentos APPCC que una empresa puede generar en el plan base.
+   * Cambiar este valor aquí afecta tanto al bloqueo de la UI como al mensaje
+   * que ve el usuario ("X de Y documentos permitidos").
+   */
   const LIMITE_DOCS = 5;
 
+  /**
+   * Carga el contador de documentos generados para este usuario.
+   * Se consulta directamente la tabla `empresas` (no una tabla separada de
+   * documentos) para minimizar las lecturas a Supabase: un solo campo numérico
+   * es más eficiente que hacer un `COUNT` sobre una tabla potencialmente grande.
+   */
   useEffect(() => {
     async function checkLimit() {
       const {
@@ -44,7 +71,20 @@ export function Documentation() {
     checkLimit();
   }, []);
 
-  // NUEVO: Escuchar cuando Tally se envía
+  /**
+   * Escucha el evento `Tally.FormSubmitted` emitido por el iframe de Tally
+   * para detectar cuando el usuario ha completado el formulario APPCC.
+   *
+   * Por qué usamos `postMessage` en lugar de un webhook directo:
+   * - El iframe está en un dominio externo (tally.so), por lo que no podemos
+   *   acceder a su DOM ni usar callbacks directos (cross-origin).
+   * - `postMessage` es el mecanismo estándar del navegador para comunicación
+   *   segura entre ventanas/iframes de distintos orígenes.
+   *
+   * Al detectar el envío, incrementamos `documentos_generados` directamente
+   * en Supabase sin pasar por Make.com, que solo maneja la generación del PDF.
+   * Esto garantiza que el contador se actualice aunque Make.com falle o tarde.
+   */
   useEffect(() => {
     const handleMessage = async (e: MessageEvent) => {
       try {

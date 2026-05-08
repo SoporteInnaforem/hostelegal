@@ -13,11 +13,36 @@ interface DriveFile {
     webContentLink: string;
 }
 
+/**
+ * Repositorio público de documentación del sector: cartelera obligatoria,
+ * guías de buenas prácticas y plantillas de registro APPCC.
+ *
+ * Lógica de negocio:
+ * - Los documentos están almacenados en una carpeta compartida de Google Drive
+ *   gestionada por el equipo de Hostelegal. Esto permite actualizar el catálogo
+ *   de documentos sin necesidad de hacer un nuevo despliegue de la aplicación.
+ * - Se usa la Google Drive API v3 con una `API_KEY` pública (solo lectura) en
+ *   lugar de OAuth porque los archivos son públicos y no se necesita
+ *   autenticación por usuario. La clave solo tiene permiso de lectura.
+ * - Se filtra `mimeType !== 'application/vnd.google-apps.folder'` para
+ *   excluir subcarpetas del listado y mostrar solo archivos descargables.
+ * - Se usa `webContentLink` (descarga directa) en lugar de `webViewLink`
+ *   (previsualizar en Google Drive) para que el archivo se descargue
+ *   inmediatamente al hacer clic, sin redirigir al usuario fuera de la app.
+ */
 export function Repository() {
     const [archivos, setArchivos] = useState<DriveFile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    /**
+     * Obtiene la lista de archivos de la carpeta de Drive configurada.
+     *
+     * La query de Drive API `'FOLDER_ID' in parents and trashed=false` recupera
+     * solo los hijos directos de la carpeta, excluyendo los movidos a la papelera.
+     * Los `fields` restringen la respuesta al mínimo necesario para reducir el
+     * tamaño del payload y evitar datos sensibles innecesarios.
+     */
     useEffect(() => {
         async function fetchDriveFiles() {
             try {
@@ -46,6 +71,14 @@ export function Repository() {
         fetchDriveFiles();
     }, []);
 
+    /**
+     * Devuelve el icono Lucide correspondiente al tipo MIME del archivo.
+     * Prioriza PDF (el formato más común en documentación legal) e imágenes
+     * (cartelera). Todo lo demás (Word, Excel, etc.) usa el icono genérico.
+     *
+     * @param mimeType - Tipo MIME del archivo devuelto por la Drive API
+     * @returns Elemento JSX con el icono correspondiente
+     */
     const getFileIcon = (mimeType: string) => {
         if (mimeType.includes("pdf")) return <FileText size={24} />;
         if (mimeType.includes("image")) return <FileImage size={24} />;

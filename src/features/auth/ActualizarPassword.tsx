@@ -3,6 +3,26 @@ import { Loader2, CheckCircle2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
+/**
+ * Pantalla de establecimiento de nueva contraseña tras recibir el enlace mágico.
+ *
+ * Lógica de negocio:
+ * - Este componente es el destino del enlace que Supabase envía por email.
+ *   El token puede llegar como fragmento `#access_token=...&type=recovery`
+ *   (flujo implícito) o como `?code=...` (flujo PKCE, más seguro).
+ *
+ * - El estado `hasValidSession` (null | boolean) actúa como semáforo de tres
+ *   fases para evitar que el usuario vea el formulario antes de que el SDK
+ *   haya procesado el token de forma asíncrona:
+ *   · `null`  → procesando (spinner bloqueante)
+ *   · `false` → enlace inválido o caducado (pantalla de error con CTA)
+ *   · `true`  → sesión de recuperación activa (formulario visible)
+ *
+ * - El evento `SIGNED_OUT` puede dispararse como "falso positivo" al inicio
+ *   cuando el SDK limpia el storage de sesiones anteriores. Se ignora si la
+ *   URL contiene tokens de recuperación para evitar mostrar "enlace caducado"
+ *   en el primer instante de carga.
+ */
 export function ActualizarPassword() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -13,12 +33,27 @@ export function ActualizarPassword() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // NUEVO: Estado para saber si el enlace es válido
+    /**
+     * Semáforo de validez del enlace de recuperación.
+     * - `null`: estado inicial mientras el SDK procesa el token de la URL.
+     * - `true`: token válido, sesión `PASSWORD_RECOVERY` activa.
+     * - `false`: token ausente, expirado (por defecto 1h en Supabase) o ya usado.
+     *   Bloquea el formulario y ofrece solicitar un nuevo enlace.
+     */
     const [hasValidSession, setHasValidSession] = useState<boolean | null>(null);
 
     const navigate = useNavigate();
 
-    // NUEVO: Comprobamos la sesión al cargar la página con paciencia
+    /**
+     * Verifica la validez del token de recuperación al montar el componente.
+     *
+     * Estrategia de doble comprobación:
+     * 1. `getSession()` síncronamente: si ya hay sesión activa (e.g. el usuario
+     *    recargó la página), la marcamos válida de inmediato.
+     * 2. `onAuthStateChange`: escucha el evento `PASSWORD_RECOVERY` o `SIGNED_IN`
+     *    que Supabase emite tras procesar el token de la URL de forma asíncrona.
+     * 3. Si la URL no tiene tokens y no hay sesión, el enlace es inválido.
+     */
     useEffect(() => {
         const checkSession = async () => {
             console.log("1. URL actual:", window.location.href);
@@ -61,6 +96,22 @@ export function ActualizarPassword() {
         return () => subscription.unsubscribe();
     }, []);
 
+    /**
+     * Valida la nueva contraseña contra la política de seguridad y la actualiza en Supabase.
+     *
+     * Requisitos de contraseña (validados en cliente antes de llamar a la API):
+     * - Mínimo 8 caracteres: longitud mínima para resistir ataques de fuerza bruta.
+     * - Al menos una mayúscula: aumenta el espacio de búsqueda combinatorio.
+     * - Al menos un número: requisito de complejidad habitual en normativas del
+     *   sector sanitario (ISO 27001, ENS Medio).
+     * - Coincidencia de ambos campos: evita errores tipográficos que bloquearían
+     *   el acceso al usuario.
+     *
+     * Tras el éxito, redirige al `/dashboard` tras 3s para dar feedback visual
+     * antes de cambiar de pantalla.
+     *
+     * @param e - Evento de formulario HTML nativo
+     */
     const handleActualizar = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);

@@ -3,12 +3,42 @@ import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
+/**
+ * Pantalla de recuperación de contraseña mediante enlace mágico por email.
+ *
+ * Lógica de negocio:
+ * - Usa `supabase.auth.resetPasswordForEmail`, que envía un email con un token
+ *   de un solo uso. El `redirectTo` construye la URL de destino de forma
+ *   dinámica usando `window.location.origin` para que funcione tanto en
+ *   localhost como en producción (Vercel) sin necesidad de cambiar código.
+ * - Una vez enviado, se muestra la pantalla de éxito INDEPENDIENTEMENTE de si
+ *   el email existe o no en la base de datos. Esto es una medida de seguridad
+ *   deliberada: si solo mostráramos éxito cuando el email existe, un atacante
+ *   podría usar esta pantalla para enumerar qué emails están registrados.
+ * - El token del enlace tiene una caducidad (configurable en Supabase, por
+ *   defecto 1 hora). `ActualizarPassword.tsx` verifica su validez al cargar.
+ */
 export function RecuperarPassword() {
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+
+    /**
+     * Cambia a `true` cuando el email se ha enviado con éxito.
+     * Reemplaza el formulario por una pantalla de confirmación para guiar
+     * al usuario a revisar su bandeja de entrada.
+     */
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    /**
+     * Envía el email de recuperación de contraseña.
+     *
+     * El `redirectTo` apunta a `/actualizar-contrasena` en el dominio actual.
+     * Supabase añade los tokens de autenticación como fragmento de URL (`#`)
+     * o como parámetro `code`, dependiendo del flujo PKCE configurado en el proyecto.
+     *
+     * @param e - Evento de formulario HTML nativo
+     */
     const handleRecuperar = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);

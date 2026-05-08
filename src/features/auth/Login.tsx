@@ -4,14 +4,47 @@ import { supabase } from "../../lib/supabase";
 import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import hostelegal from "../../assets/hostelegal.png";
 
+/**
+ * Página de inicio de sesión para empresas registradas en Hostelegal.
+ *
+ * Lógica de negocio:
+ * - Llama a `supabase.auth.signInWithPassword`. Supabase emitirá un evento
+ *   `SIGNED_IN` que el listener de `App.tsx` capturará para determinar el rol
+ *   del usuario y redirigirlo a `/dashboard` (cliente) o `/admin` (administrador).
+ *   Por eso este componente NO necesita navegar manualmente tras el login.
+ * - El mensaje de error es genérico a propósito: no distingue entre "email
+ *   incorrecto" y "contraseña incorrecta" para evitar dar pistas a atacantes
+ *   sobre qué cuentas existen en el sistema (enumeración de usuarios).
+ * - El botón de "¿Has olvidado tu contraseña?" redirige a `/recuperar`, que
+ *   inicia el flujo de reset de Supabase con enlace mágico por email.
+ */
 export function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+
+    /**
+     * Controla si el campo de contraseña muestra el texto en claro.
+     * Mejora la accesibilidad para usuarios en dispositivos móviles donde
+     * los errores tipográficos son más frecuentes.
+     */
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
+    /**
+     * Gestiona el envío del formulario de autenticación.
+     *
+     * Flujo:
+     * 1. Previene el comportamiento por defecto del formulario (recargar página).
+     * 2. Limpia cualquier error previo para que el usuario vea feedback fresco.
+     * 3. Delega la autenticación a Supabase. Si tiene éxito, el evento
+     *    `onAuthStateChange` en `App.tsx` es el que toma el control:
+     *    consulta el rol en la tabla `empresas` y redirige al panel correcto.
+     * 4. Si falla, muestra un error genérico (ver nota de seguridad arriba).
+     *
+     * @param e - Evento de formulario HTML nativo
+     */
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);

@@ -5,6 +5,23 @@ import { Loader2, ChefHat, AlertCircle } from "lucide-react";
 import { AllergenIcon } from "../dish-builder/components/AllergenIcon";
 import type { Dish } from "../dish-builder/store/useMenuStore";
 
+/**
+ * Vista pública de la carta de alérgenos. Accesible sin autenticación.
+ *
+ * Lógica de negocio:
+ * - La ruta es `/carta/:id` donde `:id` es el UUID de la carta almacenada en
+ *   Supabase. Este UUID se codifica en el QR que genera el restaurante desde
+ *   el constructor, por lo que un QR impreso siempre apunta a los datos
+ *   más actualizados en tiempo real.
+ * - La prioridad del nombre mostrado en la cabecera es: `nombre_carta` (si el
+ *   restaurante personalizó el nombre) > `nombre_restaurante` (del perfil de
+ *   empresa) > texto por defecto. Esto permite cartas con nombres distintos
+ *   al nombre del local (e.g. "Carta de Verano", "Menú Infantil").
+ * - La información de alérgenos se muestra según el Reglamento (UE) nº 1169/2011
+ *   que obliga a los establecimientos a informar sobre los 14 alérgenos
+ *   principales. El componente agrupa y deduplica alérgenos a nivel de plato,
+ *   mostrando solo los únicos aunque varios ingredientes los contengan.
+ */
 export function PublicMenu() {
     const { id } = useParams();
     const [platos, setPlatos] = useState<Dish[]>([]);
@@ -12,6 +29,21 @@ export function PublicMenu() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    /**
+     * Recupera la carta de alérgenos desde Supabase usando el ID de la URL.
+     *
+     * La consulta hace un JOIN implícito con `empresas` para obtener el nombre
+     * del restaurante en una sola petición, evitando un segundo round-trip.
+     *
+     * Prioridad del nombre mostrado en cabecera:
+     * 1. `nombre_carta` (nombre personalizado de esta carta concreta).
+     * 2. `empresa.nombre_restaurante` (nombre genérico del perfil del local).
+     * 3. "Carta de Alérgenos" como fallback si ningún dato está disponible.
+     *
+     * El `Array.isArray` en `data.empresas` maneja la ambigüedad del tipo
+     * devuelto por Supabase en JOINs: puede ser un objeto o un array según
+     * cómo el cliente JS infiera la cardinalidad de la relación.
+     */
     useEffect(() => {
         async function cargarCarta() {
             if (!id) return;
@@ -93,7 +125,13 @@ export function PublicMenu() {
             {/* Lista de Platos */}
             <main className="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-4">
                 {platos.map((plato, index) => {
-                    // Extraemos todos los alérgenos únicos de los ingredientes de este plato
+                    /**
+                     * Deduplica los alérgenos de todos los ingredientes del plato.
+                     * Usamos `Set` para eliminar repeticiones: si "mayonesa" y "pan"
+                     * ambos contienen GLUTEN, el comensal ve GLUTEN solo una vez.
+                     * Esto cumple el requisito del Reglamento UE 1169/2011 de
+                     * informar sobre PRESENCIA, no sobre cantidad ni fuente.
+                     */
                     const alergenosUnicos = [
                         ...new Set(plato.ingredients.flatMap((i) => i.allergens)),
                     ];

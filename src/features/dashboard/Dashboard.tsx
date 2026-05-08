@@ -15,6 +15,19 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import hostelegal from "../../assets/hostelegal.png";
 
+/**
+ * Panel de inicio del cliente: punto de entrada tras el login exitoso.
+ *
+ * Lógica de negocio:
+ * - Al montar, consulta en la tabla `empresas` la `fecha_caducidad_suscripcion`
+ *   del usuario autenticado. Si la fecha es anterior a hoy, se muestra un modal
+ *   de bloqueo total que impide el acceso a cualquier herramienta y solo permite
+ *   cerrar sesión. Esto es la "pared de pago" de la plataforma.
+ * - El contacto de soporte se delega a la Edge Function `super-responder` (no a
+ *   un servidor SMTP propio) para evitar exponer credenciales de email en el cliente.
+ * - La confirmación de logout es un modal explícito: protege contra cierres de
+ *   sesión accidentales en dispositivos móviles donde el área de toque es grande.
+ */
 export function Dashboard() {
     const [nombreEmpresa, setNombreEmpresa] = useState<string>("");
     const [userEmail, setUserEmail] = useState<string>("");
@@ -29,8 +42,26 @@ export function Dashboard() {
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendSuccess, setSendSuccess] = useState(false);
+    /**
+     * Controla si la pantalla de bloqueo total por suscripción expirada es visible.
+     * Cuando es `true`, se renderiza antes que el dashboard normal, actuando como
+     * "muro" que hace imposible navegar a las herramientas sin renovar el servicio.
+     */
     const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
 
+    /**
+     * Carga el perfil de la empresa y verifica si la suscripción sigue activa.
+     *
+     * Por qué verificamos la fecha de caducidad aquí y no solo en el backend:
+     * - Mejora la UX: el usuario ve inmediatamente por qué no tiene acceso en
+     *   lugar de recibir errores opaco desde Supabase RLS.
+     * - La RLS sigue siendo la última línea de defensa. Esta comprobación en
+     *   cliente solo gestiona la capa de presentación, no la seguridad real.
+     *
+     * Nota sobre el `finally`: usa la forma funcional `setIsLoading(prev => ...)`
+     * para leer el estado más reciente en el closure, evitando un race condition
+     * donde `isSubscriptionExpired` aún es `false` al evaluarse el cierre de carga.
+     */
     useEffect(() => {
         async function fetchEmpresa() {
             try {
@@ -74,10 +105,25 @@ export function Dashboard() {
         fetchEmpresa();
     }, [isSubscriptionExpired]);
 
+    /** Cierra la sesión del usuario. El evento `SIGNED_OUT` que emite Supabase
+     *  es capturado por el listener en `App.tsx`, que redirige a `/login`.
+     *  No navegamos manualmente aquí para mantener `App.tsx` como única fuente
+     *  de verdad del estado de autenticación. */
     const handleLogout = async () => {
         await supabase.auth.signOut();
     };
 
+    /**
+     * Envía un mensaje de soporte al equipo de Hostelegal a través de la
+     * Edge Function `super-responder`.
+     *
+     * Se incluye el `nombre_restaurante` y el `email` del usuario para que el
+     * equipo de soporte pueda identificar al cliente sin que el usuario tenga
+     * que escribirlos manualmente. Tras 3s de éxito, se resetea el formulario
+     * y se cierra el modal para volver al estado limpio.
+     *
+     * @param e - Evento de formulario HTML nativo
+     */
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSending(true);

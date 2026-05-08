@@ -7,6 +7,11 @@ export type { AllergenId };
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
+/**
+ * Representa un ingrediente dentro de un plato.
+ * Los alérgenos se almacenan como un array de IDs en lugar de flags booleanos
+ * para facilitar la iteración y la deduplicación en la vista pública.
+ */
 export interface Ingredient {
   /** Numeric PK — maps to Java Long from the backend. */
   id: number;
@@ -14,8 +19,14 @@ export interface Ingredient {
   allergens: AllergenId[];
 }
 
+/**
+ * Representa un plato en la carta de alérgenos.
+ * El `id` está vacío mientras el plato está en edición (borrador) y se
+ * asigna un UUID v4 en el momento en que el usuario lo añade a la carta
+ * definitiva. Esta distinción permite detectar si estamos creando o editando.
+ */
 export interface Dish {
-  /** UUID assigned by saveDishToMenu(). Empty string while in draft. */
+  /** UUID asignado por `saveDishToMenu()`. Cadena vacía mientras está en borrador. */
   id: string;
   name: string;
   ingredients: Ingredient[];
@@ -23,12 +34,23 @@ export interface Dish {
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
 
+/**
+ * Interfaz del estado del store de la carta de alérgenos.
+ *
+ * Arquitectura de dos capas:
+ * - `draftDish`: el plato que el usuario está construyendo actualmente.
+ *   Es un espacio de trabajo temporal, invisible para la carta final.
+ * - `menu`: la lista de platos comprometidos y visibles en la carta.
+ *   Solo un plato pasa de `draft` a `menu` cuando el usuario hace clic en
+ *   "Añadir a la Carta". Esta separación evita que cambios a medias
+ *   aparezcan en el PDF o el QR público.
+ */
 interface MenuState {
-  /** Committed dishes that form the allergen card. */
+  /** Platos comprometidos que forman la carta de alérgenos. */
   menu: Dish[];
-  /** Work-in-progress dish being assembled in the editor. */
+  /** Plato en edición en el editor. Invisible en la carta final hasta confirmarse. */
   draftDish: Dish;
-  /** Name shown in the PDF header. */
+  /** Nombre que aparece en la cabecera del PDF generado y en la vista pública. */
   restaurantName: string;
 }
 
@@ -103,6 +125,19 @@ export const useMenuStore = create<MenuState & MenuActions>()(
       cancelEdit: () =>
         set({ draftDish: emptyDraft() }, false, 'menu/cancelEdit'),
 
+      /**
+       * Valida, asigna UUID si es nuevo, guarda o actualiza el plato en la carta
+       * y limpia el borrador.
+       *
+       * Lógica de upsert:
+       * - Si `draftDish.id` está presente (string no vacío), significa que se
+       *   está editando un plato existente: se sustituye en el array `menu`
+       *   usando `map()` para no mutar el estado directamente.
+       * - Si `draftDish.id` es vacío, es un plato nuevo: se le asigna un UUID v4
+       *   con `crypto.randomUUID()` y se añade al final del array `menu`.
+       * - En ambos casos, el `draftDish` se resetea a un estado vacío para
+       *   preparar el editor para el siguiente plato.
+       */
       saveDishToMenu: () => {
         const { draftDish } = get();
         if (!draftDish.name.trim() || draftDish.ingredients.length === 0) return;
