@@ -37,7 +37,11 @@ interface MenuActions {
   setDraftName(name: string): void;
   addDraftIngredient(ingredient: Ingredient): void;
   removeDraftIngredient(id: number): void;
-  /** Validates, assigns UUID, pushes draftDish to menu, then resets draft. */
+  /** Carga un plato existente en el editor */
+  loadDishIntoDraft(dish: Dish): void;
+  /** Limpia el editor para salir del modo edición */
+  cancelEdit(): void;
+  /** Valida, asigna UUID si es nuevo, guarda/actualiza y resetea el draft. */
   saveDishToMenu(): void;
   removeDishFromMenu(dishId: string): void;
 }
@@ -93,15 +97,35 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           'menu/removeDraftIngredient'
         ),
 
+      loadDishIntoDraft: (dish) =>
+        set({ draftDish: dish }, false, 'menu/loadDishIntoDraft'),
+
+      cancelEdit: () =>
+        set({ draftDish: emptyDraft() }, false, 'menu/cancelEdit'),
+
       saveDishToMenu: () => {
-        const { draftDish } = get();
+        const { draftDish, menu } = get();
         if (!draftDish.name.trim() || draftDish.ingredients.length === 0) return;
-        const dish: Dish = { ...draftDish, id: draftDish.id || crypto.randomUUID() };
-        set(
-          (s) => ({ menu: [...s.menu, dish], draftDish: emptyDraft() }),
-          false,
-          'menu/saveDishToMenu'
-        );
+
+        // Si el draft ya tiene un ID, significa que estamos editando un plato existente
+        if (draftDish.id) {
+          set(
+            (s) => ({
+              menu: s.menu.map((d) => (d.id === draftDish.id ? { ...draftDish } : d)),
+              draftDish: emptyDraft(),
+            }),
+            false,
+            'menu/updateDishInMenu'
+          );
+        } else {
+          // Si no tiene ID, es un plato nuevo
+          const dish: Dish = { ...draftDish, id: crypto.randomUUID() };
+          set(
+            (s) => ({ menu: [...s.menu, dish], draftDish: emptyDraft() }),
+            false,
+            'menu/saveDishToMenu'
+          );
+        }
       },
 
       removeDishFromMenu: (dishId: string) =>

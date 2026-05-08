@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import hostelegal from "../../assets/hostelegal.png";
@@ -9,6 +10,7 @@ export function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,6 +61,7 @@ export function Login() {
                             <label className="block text-sm font-medium text-surface-700">
                                 Correo Electrónico
                             </label>
+
                             <input
                                 type="email"
                                 required
@@ -70,9 +73,16 @@ export function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-surface-700">
-                                Contraseña
-                            </label>
+                            {/* Flex container para alinear Label y el Link en la misma línea */}
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-surface-700">
+                                    Contraseña
+                                </label>
+                                <label onClick={() => navigate("/recuperar")} className="cursor-pointer text-sm font-medium text-brand-600 hover:text-brand-500 transition-colors">
+                                    ¿Has olvidado tu contraseña?
+                                </label>
+                            </div>
+
                             {/* Contenedor relativo para el botón del ojo */}
                             <div className="relative mt-1">
                                 <input

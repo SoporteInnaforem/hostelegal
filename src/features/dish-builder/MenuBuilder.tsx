@@ -12,7 +12,7 @@ import {
   Building2,
   ArrowLeft,
   Info,
-  X
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMenuStore } from "./store/useMenuStore";
@@ -302,57 +302,119 @@ async function exportCartaPDF(
 
 function MenuRow({ dish }: { dish: Dish }) {
   const removeDishFromMenu = useMenuStore((s) => s.removeDishFromMenu);
-  const [confirming, setConfirming] = useState(false);
+  const draftDish = useMenuStore((s) => s.draftDish);
+  const loadDishIntoDraft = useMenuStore((s) => s.loadDishIntoDraft);
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showEditWarning, setShowEditWarning] = useState(false);
+
   const uniqueAllergens = [
     ...new Set(dish.ingredients.flatMap((i) => i.allergens)),
   ];
 
   function handleDelete() {
-    if (!confirming) {
-      setConfirming(true);
-      setTimeout(() => setConfirming(false), 2000);
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      setTimeout(() => setConfirmingDelete(false), 2000);
       return;
     }
     removeDishFromMenu(dish.id);
   }
 
+  function handleEditClick() {
+    // Comprobamos si el usuario ya estaba creando/editando OTRO plato
+    const isDraftDirty = draftDish.name.trim() !== "" || draftDish.ingredients.length > 0;
+    const isEditingDifferentDish = draftDish.id !== dish.id;
+
+    if (isDraftDirty && isEditingDifferentDish) {
+      setShowEditWarning(true);
+    } else {
+      executeEdit();
+    }
+  }
+
+  function executeEdit() {
+    setShowEditWarning(false);
+    loadDishIntoDraft(dish);
+    // Hacemos scroll suave hasta el editor
+    document.getElementById("draft-section-label")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   return (
-    <tr className="border-b border-surface-200 hover:bg-brand-50 transition-colors duration-100">
-      <td className="px-4 py-3 font-semibold text-surface-800 whitespace-nowrap">
-        {dish.name}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-wrap gap-1">
-          {uniqueAllergens.length === 0 ? (
-            <span className="text-xs text-surface-400 italic">
-              Sin alérgenos
-            </span>
-          ) : (
-            uniqueAllergens.map((a) => (
-              <AllergenIcon key={a} allergen={a} size="sm" />
-            ))
-          )}
+    <>
+      <tr className="border-b border-surface-200 hover:bg-brand-50 transition-colors duration-100">
+        <td className="px-4 py-3 font-semibold text-surface-800 whitespace-nowrap">
+          {dish.name}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex flex-wrap gap-1">
+            {uniqueAllergens.length === 0 ? (
+              <span className="text-xs text-surface-400 italic">
+                Sin alérgenos
+              </span>
+            ) : (
+              uniqueAllergens.map((a) => (
+                <AllergenIcon key={a} allergen={a} size="sm" />
+              ))
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleEditClick}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-surface-100 text-surface-600 border border-transparent hover:bg-brand-100 hover:text-brand-700 transition-all duration-200"
+            >
+              <PenLine size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label={confirmingDelete ? "Confirmar eliminación" : `Eliminar ${dish.name}`}
+              className={[
+                "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+                confirmingDelete
+                  ? "bg-danger-600/10 text-danger-600 border border-danger-600/30"
+                  : "bg-surface-100 text-surface-600 border border-transparent hover:bg-danger-600/10 hover:text-danger-600",
+              ].join(" ")}
+            >
+              <Trash2 size={13} />
+              {confirmingDelete ? "Confirmar" : ""}
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {/* Modal de Advertencia al Editar */}
+      {showEditWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-in zoom-in duration-200">
+            <div className="w-14 h-14 bg-warning-100 text-warning-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <PenLine size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-surface-800 mb-2">Editor en uso</h3>
+            <p className="text-sm text-surface-500 mb-6">
+              Tienes un plato a medias en el editor. Si editas este plato, perderás los cambios no guardados. ¿Deseas continuar?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEditWarning(false)}
+                className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeEdit}
+                className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Descartar y Editar
+              </button>
+            </div>
+          </div>
         </div>
-      </td>
-      <td className="px-4 py-3 text-center">
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label={
-            confirming ? "Confirmar eliminación" : `Eliminar ${dish.name}`
-          }
-          className={[
-            "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
-            confirming
-              ? "bg-danger-600/10 text-danger-600 border border-danger-600/30"
-              : "bg-surface-200 text-surface-600 border border-transparent hover:bg-danger-600/10 hover:text-danger-600",
-          ].join(" ")}
-        >
-          <Trash2 size={13} />
-          {confirming ? "Confirmar" : "Quitar"}
-        </button>
-      </td>
-    </tr>
+      )}
+    </>
   );
 }
 
@@ -365,6 +427,7 @@ export function MenuBuilder() {
   const setRestaurantName = useMenuStore((s) => s.setRestaurantName);
   const setDraftName = useMenuStore((s) => s.setDraftName);
   const saveDishToMenu = useMenuStore((s) => s.saveDishToMenu);
+  const cancelEdit = useMenuStore((s) => s.cancelEdit);
 
   const [isExporting, setIsExporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -372,11 +435,12 @@ export function MenuBuilder() {
 
   const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
   const canExport = menu.length > 0 && restaurantName.trim().length > 0;
+  const isEditing = Boolean(draftDish.id); // Si hay ID, estamos editando
 
   // --- PRECARGA INTELIGENTE DEL NOMBRE (SIN BUG) ---
   useEffect(() => {
     async function loadName() {
-      if (restaurantName) return; // Si ya hay nombre, no machacamos
+      if (restaurantName) return;
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -475,7 +539,7 @@ export function MenuBuilder() {
 
       <main className="flex-1 w-full max-w-4xl mx-auto p-4 sm:p-6 flex flex-col gap-8">
 
-        {/* Nombre del establecimiento (Input simple) */}
+        {/* Nombre del establecimiento */}
         <div>
           <label
             htmlFor="restaurant-name-input"
@@ -550,7 +614,7 @@ export function MenuBuilder() {
                           scope="col"
                           className={[
                             "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-surface-500",
-                            i === 2 ? "text-center w-28" : "text-left",
+                            i === 2 ? "text-right w-36" : "text-left",
                           ].join(" ")}
                         >
                           {col}
@@ -582,14 +646,31 @@ export function MenuBuilder() {
         {/* ZONA 2: DRAFT EDITOR */}
         <section
           aria-labelledby="draft-section-label"
-          className="flex flex-col gap-6"
+          className={[
+            "flex flex-col gap-6 p-5 rounded-2xl border transition-colors duration-300",
+            isEditing ? "bg-brand-50/50 border-brand-300" : "bg-transparent border-transparent px-0"
+          ].join(" ")}
         >
-          <h2
-            id="draft-section-label"
-            className="text-base font-semibold text-surface-700"
-          >
-            Nuevo Plato
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2
+              id="draft-section-label"
+              className="text-base font-semibold text-surface-700 flex items-center gap-2"
+            >
+              {isEditing ? (
+                <><PenLine size={18} className="text-brand-600" /> Editando plato</>
+              ) : (
+                "Nuevo Plato"
+              )}
+            </h2>
+            {isEditing && (
+              <button
+                onClick={cancelEdit}
+                className="text-xs text-surface-500 hover:text-danger-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-danger-50 transition-colors"
+              >
+                Cancelar Edición
+              </button>
+            )}
+          </div>
           <div>
             <label
               htmlFor="draft-dish-name"
@@ -635,7 +716,7 @@ export function MenuBuilder() {
               title={
                 !canSave
                   ? "El plato necesita nombre y al menos un ingrediente"
-                  : "Añadir a la carta"
+                  : isEditing ? "Guardar cambios en el plato" : "Añadir a la carta"
               }
               className={[
                 "inline-flex items-center gap-2.5 px-7 py-3 rounded-xl text-sm font-semibold transition-all duration-200 outline-none",
@@ -645,7 +726,7 @@ export function MenuBuilder() {
               ].join(" ")}
             >
               <BookOpen size={16} />
-              Añadir a la Carta
+              {isEditing ? "Guardar Cambios" : "Añadir a la Carta"}
             </button>
           </div>
         </section>

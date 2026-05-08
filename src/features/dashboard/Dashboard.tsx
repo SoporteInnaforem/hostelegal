@@ -29,6 +29,7 @@ export function Dashboard() {
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendSuccess, setSendSuccess] = useState(false);
+    const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
 
     useEffect(() => {
         async function fetchEmpresa() {
@@ -40,24 +41,38 @@ export function Dashboard() {
 
                 const { data, error } = await supabase
                     .from("empresas")
-                    .select("nombre_restaurante")
+                    .select("nombre_restaurante, fecha_caducidad_suscripcion")
                     .eq("id", user.id)
                     .single();
 
                 if (error) throw error;
 
-                if (data && data.nombre_restaurante) {
-                    setNombreEmpresa(data.nombre_restaurante);
+                if (data) {
+                    const hoy = new Date();
+                    const fechaCaducidad = new Date(data.fecha_caducidad_suscripcion);
+
+                    // Comprobación de suscripción
+                    if (fechaCaducidad < hoy) {
+                        setIsSubscriptionExpired(true);
+                        setIsLoading(false); // Dejamos de cargar para mostrar el modal de bloqueo
+                        return;
+                    }
+
+                    if (data.nombre_restaurante) {
+                        setNombreEmpresa(data.nombre_restaurante);
+                    }
                 }
             } catch (error) {
-                console.error("Error cargando el nombre de la empresa:", error);
+                console.error("Error cargando el perfil:", error);
             } finally {
-                setIsLoading(false);
+                // Solo dejamos de cargar si NO ha caducado. 
+                // Si ha caducado, el setLoading(false) ya se hizo arriba.
+                setIsLoading((prev) => (isSubscriptionExpired ? prev : false));
             }
         }
 
         fetchEmpresa();
-    }, []);
+    }, [isSubscriptionExpired]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -96,6 +111,39 @@ export function Dashboard() {
         }
     };
 
+    // 1. Pantalla de carga inicial
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-surface-50 text-brand-500">
+                <Loader2 size={40} className="animate-spin" />
+            </div>
+        );
+    }
+
+    // 2. MODAL DE BLOQUEO TOTAL (Si la suscripción ha caducado)
+    if (isSubscriptionExpired) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface-100/80 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 border border-surface-200 text-center animate-in fade-in zoom-in duration-300">
+
+                    <AlertTriangle size={64} className="mx-auto text-surface-800 mb-5" strokeWidth={1.5} />
+
+                    <p className="text-surface-600 mb-8 leading-relaxed">
+                        Lo sentimos, tu suscripción a los servicios de <strong>Hostelegal</strong> ha finalizado.
+                        <br />Contacte con Hostelegal.
+                    </p>
+
+                    <button
+                        onClick={handleLogout}
+                        className="w-full py-3 bg-brand-600 text-white font-medium rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    >
+                        <LogOut size={18} /> Cerrar sesión
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    // 3. Renderizado normal del Dashboard (Solo si pasa los checks anteriores)
     return (
         <div className="min-h-screen bg-surface-50 flex flex-col">
             {/* Navbar unificada */}
