@@ -104,7 +104,7 @@ export const useMenuStore = create<MenuState & MenuActions>()(
         set({ draftDish: emptyDraft() }, false, 'menu/cancelEdit'),
 
       saveDishToMenu: () => {
-        const { draftDish, menu } = get();
+        const { draftDish } = get();
         if (!draftDish.name.trim() || draftDish.ingredients.length === 0) return;
 
         // Si el draft ya tiene un ID, significa que estamos editando un plato existente
