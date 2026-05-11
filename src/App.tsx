@@ -24,16 +24,9 @@ const Pantalla404 = () => (
     <div className="bg-white p-10 rounded-3xl shadow-sm border border-surface-200 max-w-md w-full animate-in zoom-in duration-300">
       <h2 className="text-6xl font-black text-brand-500 mb-4">404</h2>
       <h3 className="text-xl font-bold text-surface-800 mb-2">¡Ups, te has perdido!</h3>
-      <p className="text-surface-600 mb-8">
+      <p className="text-surface-600">
         La página que buscas no existe o no está disponible en esta dirección.
       </p>
-      {/* Botón opcional para llevarles a la web comercial */}
-      <a
-        href="https://www.hostelegal.com"
-        className="inline-block bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold px-6 py-3 rounded-xl transition-colors"
-      >
-        Ir a Hostelegal
-      </a>
     </div>
   </div>
 );
