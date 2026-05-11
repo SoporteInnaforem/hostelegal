@@ -20,31 +20,31 @@ import { useInactivity } from "./hooks/useInactivity";
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  // Inicializamos en null. Si hay sesión pero esto es null, significa que estamos comprobando tu rango.
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isExpired, setIsExpired] = useState<boolean | null>(null); // <-- 1. NUEVO ESTADO
   const [isLoading, setIsLoading] = useState(true);
 
-  // El vigilante solo se enciende si hay una sesión activa.
   useInactivity(!!session, 30);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Función blindada: Pase lo que pase, siempre quita la pantalla de carga al terminar
     const fetchRoleAndSetSession = async (currentSession: Session | null) => {
       if (!currentSession) {
         if (isMounted) {
           setSession(null);
           setIsAdmin(false);
+          setIsExpired(false); // Limpiamos por si acaso
           setIsLoading(false);
         }
         return;
       }
 
       try {
+        // 2. PEDIMOS LA FECHA JUNTO CON EL ROL
         const { data, error } = await supabase
           .from('empresas')
-          .select('es_admin')
+          .select('es_admin, fecha_caducidad_suscripcion')
           .eq('id', currentSession.user.id)
           .maybeSingle();
 
@@ -52,17 +52,27 @@ export default function App() {
 
         if (isMounted) {
           setIsAdmin(!!data?.es_admin);
+
+          // 3. CALCULAMOS SI ESTÁ CADUCADO (Solo a los clientes normales)
+          if (data && !data.es_admin) {
+            const caducado = new Date(data.fecha_caducidad_suscripcion) < new Date();
+            setIsExpired(caducado);
+          } else {
+            setIsExpired(false);
+          }
+
           setSession(currentSession);
         }
       } catch (error) {
         console.error("Error de conexión al verificar el rol:", error);
         if (isMounted) {
-          setIsAdmin(false); // Ante la duda o fallo, denegamos el acceso de admin
+          setIsAdmin(false);
+          setIsExpired(true); // Ante un error raro, lo bloqueamos por seguridad
           setSession(currentSession);
         }
       } finally {
         if (isMounted) {
-          setIsLoading(false); // <- LA GARANTÍA: Siempre dejará de girar
+          setIsLoading(false);
         }
       }
     };
@@ -96,7 +106,7 @@ export default function App() {
   }, []);
 
   // Aduana visual: Evita que el enrutador empiece a redirigir a lo loco antes de tiempo
-  if (isLoading || (session && isAdmin === null)) {
+  if (isLoading || (session && isAdmin === null) || (session && !isAdmin && isExpired === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50 text-brand-500">
         <Loader2 size={40} className="animate-spin" />
@@ -133,29 +143,32 @@ export default function App() {
           }
         />
 
-        {/* Rutas de Clientes Normales: Rebota al Administrador de vuelta a su panel */}
+        {/* Rutas de Clientes Normales */}
+        {/* Al Dashboard siempre les dejamos entrar, porque ahí es donde tienes tu mensaje de bloqueo */}
         <Route
           path="/dashboard"
           element={
             session ? (!isAdmin ? <Dashboard /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
           }
         />
+
+        {/* A estas 3 rutas NO les dejamos entrar si están caducados (isExpired) */}
         <Route
           path="/constructor"
           element={
-            session ? (!isAdmin ? <MenuBuilder /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
+            session ? (!isAdmin ? (!isExpired ? <MenuBuilder /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
           }
         />
         <Route
           path="/documentacion"
           element={
-            session ? (!isAdmin ? <Documentation /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
+            session ? (!isAdmin ? (!isExpired ? <Documentation /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
           }
         />
         <Route
           path="/repositorio"
           element={
-            session ? (!isAdmin ? <Repository /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
+            session ? (!isAdmin ? (!isExpired ? <Repository /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
           }
         />
 
