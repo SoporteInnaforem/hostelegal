@@ -18,10 +18,30 @@ import { Loader2 } from "lucide-react";
 // Hook de inactividad
 import { useInactivity } from "./hooks/useInactivity";
 
+// Pantalla anti-curiosos
+const Pantalla404 = () => (
+  <div className="min-h-screen bg-surface-50 flex flex-col items-center justify-center p-6 text-center">
+    <div className="bg-white p-10 rounded-3xl shadow-sm border border-surface-200 max-w-md w-full animate-in zoom-in duration-300">
+      <h2 className="text-6xl font-black text-brand-500 mb-4">404</h2>
+      <h3 className="text-xl font-bold text-surface-800 mb-2">¡Ups, te has perdido!</h3>
+      <p className="text-surface-600 mb-8">
+        La página que buscas no existe o no está disponible en esta dirección.
+      </p>
+      {/* Botón opcional para llevarles a la web comercial */}
+      <a
+        href="https://www.hostelegal.com"
+        className="inline-block bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold px-6 py-3 rounded-xl transition-colors"
+      >
+        Ir a Hostelegal
+      </a>
+    </div>
+  </div>
+);
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [isExpired, setIsExpired] = useState<boolean | null>(null); // <-- 1. NUEVO ESTADO
+  const [isExpired, setIsExpired] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useInactivity(!!session, 30);
@@ -34,14 +54,13 @@ export default function App() {
         if (isMounted) {
           setSession(null);
           setIsAdmin(false);
-          setIsExpired(false); // Limpiamos por si acaso
+          setIsExpired(false);
           setIsLoading(false);
         }
         return;
       }
 
       try {
-        // 2. PEDIMOS LA FECHA JUNTO CON EL ROL
         const { data, error } = await supabase
           .from('empresas')
           .select('es_admin, fecha_caducidad_suscripcion')
@@ -53,7 +72,6 @@ export default function App() {
         if (isMounted) {
           setIsAdmin(!!data?.es_admin);
 
-          // 3. CALCULAMOS SI ESTÁ CADUCADO (Solo a los clientes normales)
           if (data && !data.es_admin) {
             const caducado = new Date(data.fecha_caducidad_suscripcion) < new Date();
             setIsExpired(caducado);
@@ -67,7 +85,7 @@ export default function App() {
         console.error("Error de conexión al verificar el rol:", error);
         if (isMounted) {
           setIsAdmin(false);
-          setIsExpired(true); // Ante un error raro, lo bloqueamos por seguridad
+          setIsExpired(true);
           setSession(currentSession);
         }
       } finally {
@@ -77,12 +95,10 @@ export default function App() {
       }
     };
 
-    // 1. Al cargar la app o recargar la URL a mano
     supabase.auth.getSession().then(({ data: { session } }) => {
       fetchRoleAndSetSession(session);
     });
 
-    // 2. Al iniciar sesión o cerrar sesión
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (event === "SIGNED_OUT") {
         if (isMounted) {
@@ -94,7 +110,6 @@ export default function App() {
         if (isMounted) setIsLoading(true);
         fetchRoleAndSetSession(currentSession);
       } else if (currentSession) {
-        // Otros eventos de fondo (como refresco de seguridad del token)
         if (isMounted) setSession(currentSession);
       }
     });
@@ -105,7 +120,7 @@ export default function App() {
     };
   }, []);
 
-  // Aduana visual: Evita que el enrutador empiece a redirigir a lo loco antes de tiempo
+  // Aduana visual
   if (isLoading || (session && isAdmin === null) || (session && !isAdmin && isExpired === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50 text-brand-500">
@@ -114,73 +129,41 @@ export default function App() {
     );
   }
 
+  // --- LÓGICA DE DOMINIOS ---
+  const hostname = window.location.hostname;
+  const isPublicDomain = hostname.includes("cartas-") || hostname.includes("menu.");
+
+  // SI ES EL DOMINIO PÚBLICO
+  if (isPublicDomain) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/carta/:id" element={<PublicMenu />} />
+          <Route path="*" element={<Pantalla404 />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
+
+  // SI ES EL DOMINIO PRIVADO
   return (
     <BrowserRouter>
       <Routes>
-        {/* Ruta Base */}
-        <Route
-          path="/"
-          element={
-            !session ? <Navigate to="/login" replace /> :
-              (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)
-          }
-        />
+        <Route path="/" element={!session ? <Navigate to="/login" replace /> : (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} />
+        <Route path="/login" element={!session ? <Login /> : (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} />
+        <Route path="/admin" element={session ? (isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" replace />) : <Navigate to="/login" replace />} />
+        
+        <Route path="/dashboard" element={session ? (!isAdmin ? <Dashboard /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
+        <Route path="/constructor" element={session ? (!isAdmin ? (!isExpired ? <MenuBuilder /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
+        <Route path="/documentacion" element={session ? (!isAdmin ? (!isExpired ? <Documentation /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
+        <Route path="/repositorio" element={session ? (!isAdmin ? (!isExpired ? <Repository /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
 
-        {/* Ruta Login */}
-        <Route
-          path="/login"
-          element={
-            !session ? <Login /> :
-              (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)
-          }
-        />
-
-        {/* Ruta Admin Exclusiva: Rebota a los clientes normales de vuelta al dashboard */}
-        <Route
-          path="/admin"
-          element={
-            session ? (isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" replace />) : <Navigate to="/login" replace />
-          }
-        />
-
-        {/* Rutas de Clientes Normales */}
-        {/* Al Dashboard siempre les dejamos entrar, porque ahí es donde tienes tu mensaje de bloqueo */}
-        <Route
-          path="/dashboard"
-          element={
-            session ? (!isAdmin ? <Dashboard /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
-          }
-        />
-
-        {/* A estas 3 rutas NO les dejamos entrar si están caducados (isExpired) */}
-        <Route
-          path="/constructor"
-          element={
-            session ? (!isAdmin ? (!isExpired ? <MenuBuilder /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
-          }
-        />
-        <Route
-          path="/documentacion"
-          element={
-            session ? (!isAdmin ? (!isExpired ? <Documentation /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
-          }
-        />
-        <Route
-          path="/repositorio"
-          element={
-            session ? (!isAdmin ? (!isExpired ? <Repository /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />
-          }
-        />
-
-        {/* Rutas Públicas de Auth */}
+        <Route path="/carta/:id" element={<PublicMenu />} />
+        
         <Route path="/recuperar" element={<RecuperarPassword />} />
         <Route path="/actualizar-contrasena" element={<ActualizarPassword />} />
 
-        {/* Ruta Pública de la Carta */}
-        <Route path="/carta/:id" element={<PublicMenu />} />
-
-        {/* Ruta por defecto (404) redirige al inicio */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Pantalla404 />} />
       </Routes>
     </BrowserRouter>
   );

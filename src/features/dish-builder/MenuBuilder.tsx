@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -409,7 +409,6 @@ function MenuRow({ dish }: { dish: Dish }) {
           <div className="flex flex-wrap gap-1">
             {uniqueAllergens.length === 0 ? (
               <span className="text-xs text-surface-400 italic">
-                Sin alérgenos
               </span>
             ) : (
               uniqueAllergens.map((a) => (
@@ -500,10 +499,13 @@ export function MenuBuilder() {
   const setDraftName = useMenuStore((s) => s.setDraftName);
   const saveDishToMenu = useMenuStore((s) => s.saveDishToMenu);
   const cancelEdit = useMenuStore((s) => s.cancelEdit);
+  const setMenu = useMenuStore((s) => s.setMenu);
 
   const [isExporting, setIsExporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+
+  const isLoadedRef = useRef(false);
 
   const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
   const canExport = menu.length > 0 && restaurantName.trim().length > 0;
@@ -520,21 +522,39 @@ export function MenuBuilder() {
    * La condición `if (restaurantName) return` es la guardia que evita sobreescribir
    * el estado del store si el usuario ya ha escrito algo en la sesión actual.
    */
+  /**
+     * 1. CARGA INICIAL: Recupera la carta guardada de Supabase
+     */
   useEffect(() => {
-    async function loadName() {
-      if (restaurantName) return;
+    async function loadData() {
+      // Si el store ya tiene datos, no los sobreescribimos
+      if (restaurantName || menu.length > 0) {
+        isLoadedRef.current = true;
+        return;
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: cartaData } = await supabase
         .from("cartas")
-        .select("nombre_carta")
+        .select("nombre_carta, platos") // <-- Ahora pedimos también los platos
         .eq("empresa_id", user.id)
         .maybeSingle();
 
-      if (cartaData?.nombre_carta) {
-        setRestaurantName(cartaData.nombre_carta);
+      if (cartaData) {
+        if (cartaData.nombre_carta) setRestaurantName(cartaData.nombre_carta);
+        if (cartaData.platos) {
+          try {
+            // Supabase devuelve JSON como string o como objeto dependiendo del driver
+            const parsedPlatos = typeof cartaData.platos === 'string'
+              ? JSON.parse(cartaData.platos)
+              : cartaData.platos;
+            setMenu(parsedPlatos);
+          } catch (e) {
+            console.error("Error al parsear los platos de la base de datos");
+          }
+        }
       } else {
         const { data: empresaData } = await supabase
           .from("empresas")
@@ -546,9 +566,43 @@ export function MenuBuilder() {
           setRestaurantName(empresaData.nombre_restaurante);
         }
       }
+
+      // Damos un pequeño respiro antes de activar el auto-guardado
+      setTimeout(() => { isLoadedRef.current = true; }, 1000);
     }
-    loadName();
+    loadData();
   }, []);
+
+  /**
+   * 2. AUTO-GUARDADO SILENCIOSO
+   * Cada vez que el array de 'menu' o el 'restaurantName' cambia, 
+   * guardamos en Supabase tras 2 segundos de inactividad.
+   */
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    if (menu.length === 0 && !restaurantName.trim()) return;
+
+    const autoSave = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Upsert: si existe lo actualiza, si no, lo crea (igual que en PublishModal)
+      await supabase
+        .from('cartas')
+        .upsert(
+          {
+            empresa_id: user.id,
+            nombre_carta: restaurantName.trim(),
+            platos: menu
+          },
+          { onConflict: 'empresa_id' }
+        );
+    };
+
+    // Debounce: espera 2 segundos desde el último cambio antes de guardar
+    const timeoutId = setTimeout(autoSave, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [menu, restaurantName]);
 
   /**
    * Lanza la exportación del PDF de la carta.

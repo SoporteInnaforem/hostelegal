@@ -66,6 +66,7 @@ interface MenuActions {
   /** Valida, asigna UUID si es nuevo, guarda/actualiza y resetea el draft. */
   saveDishToMenu(): void;
   removeDishFromMenu(dishId: string): void;
+  setMenu(menu: Dish[]): void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -169,6 +170,9 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           false,
           'menu/removeDishFromMenu'
         ),
+
+      setMenu: (menu) =>
+        set({ menu }, false, 'menu/setMenu'),
     }),
     { name: 'MenuStore' }
   )

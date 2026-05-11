@@ -147,7 +147,6 @@ export function PublicMenu() {
                             <h2 className="text-lg font-bold text-surface-800 leading-tight mb-2">
                                 {plato.name}
                             </h2>
-
                             {/* INGREDIENTES: Nuevo bloque añadido aquí */}
                             {plato.ingredients.length > 0 && (
                                 <p className="text-sm text-surface-600 mb-4 leading-relaxed">
@@ -155,27 +154,23 @@ export function PublicMenu() {
                                 </p>
                             )}
 
-                            <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-                                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
-                                    Alérgenos detectados:
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {alergenosUnicos.length === 0 ? (
-                                        <span className="text-sm text-success-600 font-medium bg-success-50 px-2 py-1 rounded-md">
-                                            ✓ Libre de los 14 alérgenos principales
-                                        </span>
-                                    ) : (
-                                        alergenosUnicos.map((alergeno) => (
+                            {alergenosUnicos.length > 0 && (
+                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
+                                        Alérgenos detectados:
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {alergenosUnicos.map((alergeno) => (
                                             <div key={alergeno} className="flex items-center gap-1.5 bg-white border border-surface-200 px-2 py-1 rounded-md shadow-sm">
                                                 <AllergenIcon allergen={alergeno} size="sm" />
                                                 <span className="text-xs font-medium text-surface-700 capitalize">
                                                     {alergeno.toLowerCase().replace(/_/g, " ")}
                                                 </span>
                                             </div>
-                                        ))
-                                    )}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </article>
                     );
                 })}

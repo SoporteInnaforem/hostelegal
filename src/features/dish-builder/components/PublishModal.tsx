@@ -44,7 +44,13 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
 
             if (dbError) throw dbError;
 
-            const url = `${window.location.origin}/carta/${data.id}`;
+            // Si estamos en local, usamos localhost para hacer pruebas. Si estamos en internet, usamos tu nuevo dominio público.
+            const isLocalhost = window.location.hostname === "localhost";
+            const dominioPublico = isLocalhost
+                ? window.location.origin
+                : "https://cartas-portal-hostelegal.vercel.app"; // <-- Asegúrate de poner el nombre exacto que le diste en Vercel
+
+            const url = `${dominioPublico}/carta/${data.id}`;
             setPublicUrl(url);
 
         } catch (err: any) {
