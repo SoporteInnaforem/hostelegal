@@ -3,7 +3,7 @@ import { useAdminStore, type Cliente } from "./store/useAdminStore";
 import { supabase } from "../../lib/supabase";
 import {
     Building2, Mail, Calendar, ShieldAlert, Plus, Edit2, Trash2, X, ShieldCheck,
-    Search, ArrowUpDown, LogOut, ChevronLeft, ChevronRight, AlertTriangle
+    Search, ArrowUpDown, LogOut, ChevronLeft, ChevronRight, AlertTriangle, Eye, EyeOff, FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import hostelegal from "../../assets/hostelegal.png";
@@ -27,8 +27,11 @@ export function AdminDashboard() {
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Estados de Formulario
-    const [formData, setFormData] = useState({ nombre: '', email: '', password: '', fecha: '' });
+    const [formData, setFormData] = useState({ nombre: '', email: '', password: '', fecha: '', documentos: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         fetchClientes();
@@ -93,13 +96,27 @@ export function AdminDashboard() {
     // ─── LÓGICA DE MODALES ───
     const abrirModalCrear = () => {
         setClienteEditando(null);
-        setFormData({ nombre: '', email: '', password: '', fecha: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0] });
+        setFormData({
+            nombre: '',
+            email: '',
+            password: '',
+            fecha: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+            documentos: 0 // Al crear empieza en 0
+        });
+        setConfirmPassword("");
         setIsModalOpen(true);
     };
 
-    const abrirModalEditar = (cliente: Cliente) => {
+    const abrirModalEditar = (cliente: any) => {
         setClienteEditando(cliente);
-        setFormData({ nombre: cliente.nombre_restaurante, email: cliente.email || '', password: '', fecha: cliente.fecha_caducidad_suscripcion.split('T')[0] });
+        setFormData({
+            nombre: cliente.nombre_restaurante,
+            email: cliente.email || '',
+            password: '',
+            fecha: cliente.fecha_caducidad_suscripcion ? cliente.fecha_caducidad_suscripcion.split('T')[0] : '',
+            documentos: cliente.documentos_generados || 0 // Cargamos el valor real
+        });
+        setConfirmPassword("");
         setIsModalOpen(true);
     };
 
@@ -111,12 +128,27 @@ export function AdminDashboard() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Nueva validación: Si estás creando, o si estás editando y has escrito una clave nueva
+        if ((!clienteEditando || formData.password.length > 0) && formData.password !== confirmPassword) {
+            alert("Las contraseñas no coinciden. Por favor, revísalas.");
+            setIsSubmitting(false);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             if (clienteEditando) {
-                await actualizarCliente(clienteEditando.id, formData.nombre, formData.email, new Date(formData.fecha).toISOString(), formData.password || undefined);
+                await actualizarCliente(
+                    clienteEditando.id,
+                    formData.nombre,
+                    formData.email,
+                    new Date(formData.fecha).toISOString(),
+                    formData.documentos, // <-- Enviamos el contador
+                    formData.password || undefined
+                );
             } else {
-                await crearCliente(formData.nombre, formData.email, formData.password);
+                await crearCliente(formData.nombre, formData.email, formData.password, formData.fecha);
             }
             setIsModalOpen(false);
         } catch (error) {
@@ -125,7 +157,6 @@ export function AdminDashboard() {
             setIsSubmitting(false);
         }
     };
-
     return (
         <div className="min-h-screen bg-surface-50 flex flex-col">
             {/* ─── HEADER IGUAL AL DASHBOARD PRINCIPAL ─── */}
@@ -253,6 +284,7 @@ export function AdminDashboard() {
                                     onChange={(e) => setItemsPerPage(Number(e.target.value))}
                                     className="border border-surface-300 rounded-md py-1 px-2 text-surface-700 bg-white outline-none"
                                 >
+                                    <option value={5}>5</option>
                                     <option value={10}>10</option>
                                     <option value={20}>20</option>
                                     <option value={50}>50</option>
@@ -341,15 +373,59 @@ export function AdminDashboard() {
                                 </div>
                             </div>
 
+                            {/* ─── CONTRASEÑA INICIAL / NUEVA ─── */}
                             <div>
                                 <label className="block text-xs font-semibold text-surface-500 mb-1">
                                     {clienteEditando ? 'Nueva Contraseña (Opcional)' : 'Contraseña Inicial'}
                                 </label>
                                 <div className="relative">
                                     <ShieldAlert size={16} className="absolute left-3 top-3 text-surface-400" />
-                                    <input type={clienteEditando ? "text" : "password"} required={!clienteEditando} minLength={8} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder={clienteEditando ? "Dejar en blanco para no cambiarla" : "Mín. 8 caracteres..."} className="w-full pl-9 pr-4 py-2.5 border border-surface-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        required={!clienteEditando}
+                                        minLength={8}
+                                        value={formData.password}
+                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                        placeholder={clienteEditando ? "Dejar en blanco para no cambiarla" : "Mín. 8 caracteres..."}
+                                        className="w-full pl-9 pr-10 py-2.5 border border-surface-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-3 text-surface-400 hover:text-brand-600 transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* ─── CONFIRMAR CONTRASEÑA (Aparece al crear o al teclear nueva clave) ─── */}
+                            {(!clienteEditando || formData.password.length > 0) && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-surface-500 mb-1">
+                                        Confirmar {clienteEditando ? 'Nueva ' : ''}Contraseña
+                                    </label>
+                                    <div className="relative">
+                                        <ShieldAlert size={16} className="absolute left-3 top-3 text-surface-400" />
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            required={!clienteEditando || formData.password.length > 0}
+                                            minLength={8}
+                                            value={confirmPassword}
+                                            onChange={e => setConfirmPassword(e.target.value)}
+                                            placeholder="Repite la contraseña..."
+                                            className="w-full pl-9 pr-10 py-2.5 border border-surface-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-3 text-surface-400 hover:text-brand-600 transition-colors"
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-surface-500 mb-1">Fecha de Caducidad</label>
@@ -358,6 +434,38 @@ export function AdminDashboard() {
                                     <input type="date" required value={formData.fecha} onChange={e => setFormData({ ...formData, fecha: e.target.value })} className="w-full pl-9 pr-4 py-2.5 border border-surface-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
                                 </div>
                             </div>
+
+                            {/* ─── CONTADOR DE DOCUMENTOS (Solo en edición) ─── */}
+                            {clienteEditando && (
+                                <div className="bg-surface-50 p-4 rounded-2xl border border-surface-200">
+                                    <label className="block text-xs font-bold text-surface-500 mb-2 uppercase tracking-wider">
+                                        Consumo de documentos (Mes actual)
+                                    </label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative flex-1">
+                                            <FileText size={16} className="absolute left-3 top-3 text-surface-400" />
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="5"
+                                                value={formData.documentos}
+                                                onChange={e => setFormData({ ...formData, documentos: parseInt(e.target.value) || 0 })}
+                                                className="w-full pl-9 pr-4 py-2.5 border border-surface-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm font-bold"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, documentos: 0 })}
+                                            className="px-4 py-2.5 bg-white text-brand-600 border border-brand-200 rounded-xl text-xs font-bold hover:bg-brand-50 transition-colors shadow-sm"
+                                        >
+                                            Resetear Mes
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-surface-400 mt-2 italic">
+                                        * Límite actual: 5 documentos. Al resetear, el cliente podrá volver a usar el generador.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="pt-4 flex gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-surface-600 bg-surface-100 hover:bg-surface-200 rounded-xl font-medium transition-colors">Cancelar</button>

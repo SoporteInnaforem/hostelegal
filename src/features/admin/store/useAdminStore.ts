@@ -13,8 +13,8 @@ interface AdminState {
   clientes: Cliente[];
   isLoading: boolean;
   fetchClientes: () => Promise<void>;
-  crearCliente: (nombre: string, email: string, password: string) => Promise<void>;
-  actualizarCliente: (id: string, nombre: string, email: string, fecha: string, newPassword?: string) => Promise<void>;
+  crearCliente: (nombre: string, email: string, password: string, fecha: string) => Promise<void>; // <-- Añadido aquí
+  actualizarCliente: (id: string, nombre: string, email: string, fecha: string, documentos: number, newPassword?: string) => Promise<void>;
   darDeBaja: (id: string) => Promise<void>;
 }
 
@@ -22,11 +22,12 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   clientes: [],
   isLoading: false,
 
-  fetchClientes: async () => {
+fetchClientes: async () => {
     set({ isLoading: true });
     const { data, error } = await supabase
       .from('empresas')
       .select('*')
+      .eq('es_admin', false) // <-- EL BLINDAJE: Solo traemos a los que NO son admin
       .order('fecha_caducidad_suscripcion', { ascending: false });
     
     if (!error && data) {
@@ -36,34 +37,36 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  crearCliente: async (nombre, email, password) => {
-    // 1. Llama a la Edge Function para crear el Auth (esto dispara el trigger SQL)
+crearCliente: async (nombre, email, password, fecha) => {
     const { error } = await supabase.functions.invoke('admin-users', {
-      body: { action: 'create_user', userData: { email, password, nombre_restaurante: nombre } }
+      body: { 
+        action: 'create_user', 
+        userData: { email, password, nombre_restaurante: nombre, fecha_caducidad: fecha } // <-- Añadido aquí
+      }
     });
     if (error) throw error;
-    // Recargar la tabla
     await get().fetchClientes();
   },
 
-  actualizarCliente: async (id, nombre, email, fecha, newPassword) => {
-    // 1. Actualizar datos en la tabla empresas (Frontend directo por RLS)
+actualizarCliente: async (id, nombre, email, fecha, documentos, newPassword) => {
     const { error: dbError } = await supabase
       .from('empresas')
-      .update({ nombre_restaurante: nombre, email: email, fecha_caducidad_suscripcion: fecha })
+      .update({ 
+          nombre_restaurante: nombre, 
+          email: email, 
+          fecha_caducidad_suscripcion: fecha,
+          documentos_generados: documentos // <-- Guardamos el nuevo valor del contador
+      })
       .eq('id', id);
     if (dbError) throw dbError;
 
-    // 2. Si se cambió la contraseña o el email, avisamos a la Edge Function
     if (newPassword || email) {
-      const { error: fnError } = await supabase.functions.invoke('admin-users', {
+      await supabase.functions.invoke('admin-users', {
         body: { action: 'update_user', userId: id, userData: { email, password: newPassword } }
       });
-      if (fnError) throw fnError;
     }
-    
     await get().fetchClientes();
-  },
+},
 
   darDeBaja: async (id) => {
     // Soft Delete: Ponemos la fecha en el año 2000
