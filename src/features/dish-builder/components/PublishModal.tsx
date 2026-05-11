@@ -27,15 +27,13 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("No hay sesión activa");
 
-            // ¡FUERA EL UPDATE PELIGROSO A EMPRESAS!
-            // Ahora lo guardamos directamente dentro del "upsert" de la tabla cartas.
             const { data, error: dbError } = await supabase
                 .from('cartas')
                 .upsert(
                     {
                         empresa_id: user.id,
                         platos: platos,
-                        nombre_carta: restaurantName.trim() // <-- NUEVA COLUMNA INOFENSIVA
+                        nombre_carta: restaurantName.trim()
                     },
                     { onConflict: 'empresa_id' }
                 )
@@ -44,11 +42,22 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
 
             if (dbError) throw dbError;
 
-            // Si estamos en local, usamos localhost para hacer pruebas. Si estamos en internet, usamos tu nuevo dominio público.
-            const isLocalhost = window.location.hostname === "localhost";
-            const dominioPublico = isLocalhost
-                ? window.location.origin
-                : "https://cartas-portal-hostelegal.vercel.app"; // <-- Asegúrate de poner el nombre exacto que le diste en Vercel
+            // --- LÓGICA DE 3 VÍAS PARA LA URL DEL QR ---
+            const hostname = window.location.hostname;
+            let dominioPublico = "";
+
+            if (hostname === "localhost" || hostname === "127.0.0.1") {
+                // A) BANCO DE PRUEBAS LOCAL
+                dominioPublico = window.location.origin;
+            }
+            else if (hostname.includes("portal-hostelegal")) {
+                // B) BANCO DE PRUEBAS DESPLEGADO (Tu Vercel)
+                dominioPublico = "https://cartas-portal-hostelegal.vercel.app";
+            }
+            else {
+                // C) DESPLIEGUE TOTAL (Vercel de la empresa)
+                dominioPublico = "https://cartahostelegal.vercel.app";
+            }
 
             const url = `${dominioPublico}/carta/${data.id}`;
             setPublicUrl(url);
@@ -61,7 +70,7 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
     };
 
     const handleCloseModal = () => {
-        setPublicUrl(null); // Reseteamos por si vuelve a abrir
+        setPublicUrl(null);
         onClose();
     };
 

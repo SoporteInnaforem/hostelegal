@@ -101,12 +101,18 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (event === "SIGNED_OUT") {
+        // 1. Limpiamos el reloj al cerrar sesión
+        localStorage.removeItem("ultimaActividadHostelegal");
+
         if (isMounted) {
           setSession(null);
           setIsAdmin(false);
           setIsLoading(false);
         }
       } else if (event === "SIGNED_IN") {
+        // 2. Reiniciamos el reloj al hacer login para que entre "fresco"
+        localStorage.setItem("ultimaActividadHostelegal", Date.now().toString());
+
         if (isMounted) setIsLoading(true);
         fetchRoleAndSetSession(currentSession);
       } else if (currentSession) {
@@ -152,14 +158,14 @@ export default function App() {
         <Route path="/" element={!session ? <Navigate to="/login" replace /> : (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} />
         <Route path="/login" element={!session ? <Login /> : (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} />
         <Route path="/admin" element={session ? (isAdmin ? <AdminDashboard /> : <Navigate to="/dashboard" replace />) : <Navigate to="/login" replace />} />
-        
+
         <Route path="/dashboard" element={session ? (!isAdmin ? <Dashboard /> : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
         <Route path="/constructor" element={session ? (!isAdmin ? (!isExpired ? <MenuBuilder /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
         <Route path="/documentacion" element={session ? (!isAdmin ? (!isExpired ? <Documentation /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
         <Route path="/repositorio" element={session ? (!isAdmin ? (!isExpired ? <Repository /> : <Navigate to="/dashboard" replace />) : <Navigate to="/admin" replace />) : <Navigate to="/login" replace />} />
 
         <Route path="/carta/:id" element={<PublicMenu />} />
-        
+
         <Route path="/recuperar" element={<RecuperarPassword />} />
         <Route path="/actualizar-contrasena" element={<ActualizarPassword />} />
 
