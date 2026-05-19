@@ -78,6 +78,15 @@ async function imgUrlToBase64(url: string): Promise<string> {
 type IconMap = Partial<Record<string, string>>;
 type AutoTableDoc = { lastAutoTable: { finalY: number } };
 
+function normalizeAllergens(value: unknown): AllergenId[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (allergen): allergen is AllergenId =>
+      typeof allergen === "string" && allergen in ALLERGEN_LABEL,
+  );
+}
+
 /**
  * Pinta los iconos de alérgenos dentro de una celda de la tabla jsPDF.
  *
@@ -97,14 +106,18 @@ function drawIconsInCell(
   data: Parameters<
     NonNullable<Parameters<typeof autoTable>[1]["didDrawCell"]>
   >[0],
-  allergens: AllergenId[],
+  allergens: unknown,
   iconMap: IconMap,
   iconMm: number,
 ) {
+  const safeAllergens = normalizeAllergens(allergens);
+  if (safeAllergens.length === 0) return;
+
   let iconX = data.cell.x + 2;
   const iconY = data.cell.y + (data.cell.height - iconMm) / 2;
   const maxX = data.cell.x + data.cell.width - 1;
-  for (const allergen of allergens) {
+
+  for (const allergen of safeAllergens) {
     if (iconX + iconMm > maxX) break;
     const b64 = iconMap[allergen];
     if (b64) {
@@ -178,7 +191,14 @@ async function exportCartaPDF(
 
   const summaryAllergens: AllergenId[][] = [];
   const summaryRows = menu.map((dish) => {
-    const unique = [...new Set(dish.ingredients.flatMap((i) => i.allergens))];
+    const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
+    const unique = [
+      ...new Set(
+        ingredients.flatMap((ingredient) =>
+          normalizeAllergens(ingredient?.allergens),
+        ),
+      ),
+    ];
     summaryAllergens.push(unique);
     return [dish.name, ""];
   });
@@ -284,9 +304,10 @@ async function exportCartaPDF(
     cursorY += 3;
 
     const rowAllergens: AllergenId[][] = [];
-    const rows = dish.ingredients.map((ing) => {
-      rowAllergens.push(ing.allergens);
-      return [ing.name, ""];
+    const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
+    const rows = ingredients.map((ingredient) => {
+      rowAllergens.push(normalizeAllergens(ingredient?.allergens));
+      return [ingredient?.name?.trim() || "Ingrediente sin nombre", ""];
     });
 
     autoTable(doc, {
