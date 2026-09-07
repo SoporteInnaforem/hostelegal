@@ -9,6 +9,7 @@
 - Se confirmó que el frontend nuevo se desplegó antes de `202609070001_secure_menu_import.sql`: la consulta requería columnas de borrador que aún no existían.
 - Se añadió diagnóstico seguro para distinguir migración pendiente, cartas duplicadas, datos antiguos inválidos y fallos transitorios.
 - Las dos migraciones compatibles ya están aplicadas en Supabase; queda repetir la prueba desde Vercel Preview.
+- Google Drive rechazaba el dominio dinámico de Vercel Preview con `403 PERMISSION_DENIED`; Producción sí está autorizada y la carpeta mantiene 17 archivos. El repositorio ofrece ahora automáticamente la vista pública de la misma carpeta cuando falla la API restringida.
 
 ## Auditoría remota de Supabase (`alergomenu`)
 

@@ -4,13 +4,16 @@ import { Link } from "react-router-dom";
 
 const GOOGLE_API_KEY = "AIzaSyDmrqKmgjDD1uJlu1W0wYtRVshH1Z198Mo";
 const DRIVE_FOLDER_ID = "11YSrHAiIQbEyvMxQiZsmX49u5B2Dc_wQ";
+const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
+const DRIVE_EMBED_URL = `https://drive.google.com/embeddedfolderview?id=${DRIVE_FOLDER_ID}#list`;
 
 interface DriveFile {
     id: string;
     name: string;
     mimeType: string;
     // 1. CAMBIO: Usamos webContentLink en lugar de webViewLink para descarga directa
-    webContentLink: string;
+    webContentLink?: string;
+    webViewLink?: string;
 }
 
 /**
@@ -34,6 +37,7 @@ export function Repository() {
     const [archivos, setArchivos] = useState<DriveFile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [useFolderFallback, setUseFolderFallback] = useState(false);
 
     /**
      * Obtiene la lista de archivos de la carpeta de Drive configurada.
@@ -47,22 +51,28 @@ export function Repository() {
         async function fetchDriveFiles() {
             try {
                 // 2. CAMBIO: En los fields de la URL pedimos 'webContentLink'
-                const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,webContentLink)&key=${GOOGLE_API_KEY}`;
+                const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,webContentLink,webViewLink)&key=${GOOGLE_API_KEY}`;
 
                 const response = await fetch(url);
 
                 if (!response.ok) {
-                    throw new Error("No se pudo conectar con el repositorio.");
+                    throw new Error(`Drive API ${response.status}`);
                 }
 
                 const data = await response.json();
+
+                if (!Array.isArray(data.files)) throw new Error("Respuesta de Drive no válida");
 
                 const filesOnly = data.files.filter((f: DriveFile) => f.mimeType !== "application/vnd.google-apps.folder");
 
                 setArchivos(filesOnly);
             } catch (err: unknown) {
                 console.error(err);
-                setError("Error al cargar los documentos. Vuelve a intentarlo más tarde.");
+                // Google restricts the browser API key by HTTP referrer. Vercel
+                // Preview domains may not be allowlisted, so retain access to
+                // the same public folder through Drive's keyless embed view.
+                setUseFolderFallback(true);
+                setError(null);
             } finally {
                 setIsLoading(false);
             }
@@ -128,13 +138,23 @@ export function Repository() {
                     </div>
                 )}
 
-                {!isLoading && !error && archivos.length === 0 && (
+                {!isLoading && useFolderFallback && (
+                    <div className="space-y-4">
+                        <div className="bg-warning-50 text-warning-800 p-4 rounded-xl border border-warning-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <p className="text-sm">No pudimos cargar la vista habitual. Puedes consultar y descargar los mismos documentos desde esta carpeta.</p>
+                            <a href={DRIVE_FOLDER_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline underline-offset-2 whitespace-nowrap">Abrir en Drive</a>
+                        </div>
+                        <iframe src={DRIVE_EMBED_URL} title="Documentación de interés en Google Drive" className="w-full min-h-[65vh] bg-white rounded-2xl border border-surface-200" />
+                    </div>
+                )}
+
+                {!isLoading && !error && !useFolderFallback && archivos.length === 0 && (
                     <div className="text-center py-20 text-surface-500">
                         <p>No hay documentos disponibles en este momento.</p>
                     </div>
                 )}
 
-                {!isLoading && !error && archivos.length > 0 && (
+                {!isLoading && !error && !useFolderFallback && archivos.length > 0 && (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {archivos.map((doc) => (
                             <div
@@ -155,7 +175,7 @@ export function Repository() {
 
                                 <div className="mt-auto">
                                     <a
-                                        href={doc.webContentLink} // 4. CAMBIO: Enlace de descarga directa
+                                        href={doc.webContentLink || doc.webViewLink || `https://drive.google.com/file/d/${doc.id}/view`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-surface-100 hover:bg-brand-50 text-surface-700 hover:text-brand-700 rounded-xl font-medium text-sm transition-colors"
