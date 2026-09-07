@@ -73,6 +73,8 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ## Registro de validación
 
+- Documentación de interés: recuperadas las tarjetas también cuando Drive rechaza la API. Catálogo de respaldo con los 17 documentos públicos actuales, nombres legibles y descarga desde Drive. La API sigue actualizando el listado cuando está disponible; el respaldo no incorpora automáticamente altas posteriores.
+
 - Alcance confirmado: cuota desde la aplicación sin modificar Make. RPC autenticada registrar_envio_tally con deduplicación, mes Europe/Madrid y formulario bloqueado al agotar cupo. Prueba del sexto envío y reinicio mensual superada.
 - Cierre de permisos actualizado para sustituir las políticas reales del panel. Pendiente confirmar uso de los dominios antiguos portal-hostelegal y cartas-portal-hostelegal antes de ejecutarlo.
 
@@ -92,3 +94,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
 Última validación: `npm run build`, `npm run lint` y las 35 pruebas de `npm test` completados correctamente. Cuota mensual preparada localmente, pendiente de despliegue e integración con Make.
+- Validación de la recuperación de tarjetas: compilación y lint correctos; catálogo verificado con 17 identificadores únicos. Pendiente comprobación visual en navegador.

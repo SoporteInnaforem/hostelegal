@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Download, FileText, File, FileImage, Loader2, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import driveCatalog from './driveCatalog.json';
 
 const GOOGLE_API_KEY = "AIzaSyDmrqKmgjDD1uJlu1W0wYtRVshH1Z198Mo";
 const DRIVE_FOLDER_ID = "11YSrHAiIQbEyvMxQiZsmX49u5B2Dc_wQ";
 const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
-const DRIVE_EMBED_URL = `https://drive.google.com/embeddedfolderview?id=${DRIVE_FOLDER_ID}#list`;
 
 interface DriveFile {
     id: string;
@@ -68,9 +68,9 @@ export function Repository() {
                 setArchivos(filesOnly);
             } catch (err: unknown) {
                 console.error(err);
-                // Google restricts the browser API key by HTTP referrer. Vercel
-                // Preview domains may not be allowlisted, so retain access to
-                // the same public folder through Drive's keyless embed view.
+                // Keep the card layout using the verified public catalogue when
+                // Drive is unavailable. The live API remains the primary source.
+                setArchivos(driveCatalog);
                 setUseFolderFallback(true);
                 setError(null);
             } finally {
@@ -141,10 +141,9 @@ export function Repository() {
                 {!isLoading && useFolderFallback && (
                     <div className="space-y-4">
                         <div className="bg-warning-50 text-warning-800 p-4 rounded-xl border border-warning-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <p className="text-sm">No pudimos cargar la vista habitual. Puedes consultar y descargar los mismos documentos desde esta carpeta.</p>
+                            <p className="text-sm">Mostramos el último catálogo guardado. Puedes consultar las novedades en Drive.</p>
                             <a href={DRIVE_FOLDER_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline underline-offset-2 whitespace-nowrap">Abrir en Drive</a>
                         </div>
-                        <iframe src={DRIVE_EMBED_URL} title="Documentación de interés en Google Drive" className="w-full min-h-[65vh] bg-white rounded-2xl border border-surface-200" />
                     </div>
                 )}
 
@@ -154,8 +153,8 @@ export function Repository() {
                     </div>
                 )}
 
-                {!isLoading && !error && !useFolderFallback && archivos.length > 0 && (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {!isLoading && !error && archivos.length > 0 && (
+                    <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {archivos.map((doc) => (
                             <div
                                 key={doc.id}
@@ -165,12 +164,12 @@ export function Repository() {
                                     {getFileIcon(doc.mimeType)}
                                 </div>
 
-                                {/* 3. CAMBIO: Añadido break-all y line-clamp para que textos sin espacios no rompan el grid */}
+                                {/* Los nombres largos se ajustan sin ocultar el título. */}
                                 <h3
-                                    className="font-bold text-surface-800 mb-4 leading-tight break-all line-clamp-2"
+                                    className="font-bold text-surface-800 mb-4 leading-tight break-words"
                                     title={doc.name} // Al pasar el ratón se verá el nombre completo
                                 >
-                                    {doc.name.replace(/\.[^/.]+$/, "")}
+                                    {doc.name.replace(/\.[^/.]+$/, "").replace(/_/g, ' ')}
                                 </h3>
 
                                 <div className="mt-auto">
