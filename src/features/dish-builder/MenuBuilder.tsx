@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "../../lib/supabase";
+import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -23,6 +22,9 @@ import { AllergenIcon } from "./components/AllergenIcon";
 import { IngredientSearch } from "./components/IngredientSearch";
 import { IngredientTable } from "./components/IngredientTable";
 import { PublishModal } from "./components/PublishModal";
+import { ImportMenuModal } from "./components/ImportMenuModal";
+import { useMenuPersistence } from "./useMenuPersistence";
+import { pendingIngredients } from "./utils/menuValidation";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -443,6 +445,7 @@ function MenuRow({ dish }: { dish: Dish }) {
             <button
               type="button"
               onClick={handleEditClick}
+              aria-label={`Editar ${dish.name}`}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-surface-100 text-surface-600 border border-transparent hover:bg-brand-100 hover:text-brand-700 transition-all duration-200"
             >
               <PenLine size={13} />
@@ -520,119 +523,25 @@ export function MenuBuilder() {
   const setDraftName = useMenuStore((s) => s.setDraftName);
   const saveDishToMenu = useMenuStore((s) => s.saveDishToMenu);
   const cancelEdit = useMenuStore((s) => s.cancelEdit);
-  const setMenu = useMenuStore((s) => s.setMenu);
+  const appendDishes = useMenuStore((s) => s.appendDishes);
+  const ownerId = useMenuStore((s) => s.ownerId);
+  const persistence = useMenuPersistence();
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const [isExporting, setIsExporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
-  const isLoadedRef = useRef(false);
+  const pending = pendingIngredients(menu);
 
   const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
-  const canExport = menu.length > 0 && restaurantName.trim().length > 0;
+  const canExport = menu.length > 0 && restaurantName.trim().length > 0 && pending === 0;
   const isEditing = Boolean(draftDish.id); // Si hay ID, estamos editando
 
-  /**
-   * Precarga el nombre del establecimiento en el store al montar el componente.
-   *
-   * Prioridad de carga (de más específico a más genérico):
-   * 1. `cartas.nombre_carta`: el usuario ya guardó un nombre personalizado para
-   *    esta carta (e.g. "Menú Primavera 2025").
-   * 2. `empresas.nombre_restaurante`: el nombre por defecto del perfil del local.
-   *
-   * La condición `if (restaurantName) return` es la guardia que evita sobreescribir
-   * el estado del store si el usuario ya ha escrito algo en la sesión actual.
-   */
-  /**
-     * 1. CARGA INICIAL: Recupera la carta guardada de Supabase
-     */
-  useEffect(() => {
-    async function loadData() {
-      // Si el store ya tiene datos, no los sobreescribimos
-      if (restaurantName || menu.length > 0) {
-        isLoadedRef.current = true;
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: cartaData } = await supabase
-        .from("cartas")
-        .select("nombre_carta, platos") // <-- Ahora pedimos también los platos
-        .eq("empresa_id", user.id)
-        .maybeSingle();
-
-      if (cartaData) {
-        if (cartaData.nombre_carta) setRestaurantName(cartaData.nombre_carta);
-        if (cartaData.platos) {
-          try {
-            // Supabase devuelve JSON como string o como objeto dependiendo del driver
-            const parsedPlatos = typeof cartaData.platos === 'string'
-              ? JSON.parse(cartaData.platos)
-              : cartaData.platos;
-            setMenu(parsedPlatos);
-          } catch (e) {
-            console.error("Error al parsear los platos de la base de datos");
-          }
-        }
-      } else {
-        const { data: empresaData } = await supabase
-          .from("empresas")
-          .select("nombre_restaurante")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (empresaData?.nombre_restaurante) {
-          setRestaurantName(empresaData.nombre_restaurante);
-        }
-      }
-
-      // Damos un pequeño respiro antes de activar el auto-guardado
-      setTimeout(() => { isLoadedRef.current = true; }, 1000);
-    }
-    loadData();
-  }, []);
-
-  /**
-   * 2. AUTO-GUARDADO SILENCIOSO
-   * Cada vez que el array de 'menu' o el 'restaurantName' cambia, 
-   * guardamos en Supabase tras 2 segundos de inactividad.
-   */
-  useEffect(() => {
-    if (!isLoadedRef.current) return;
-    if (menu.length === 0 && !restaurantName.trim()) return;
-
-    const autoSave = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Upsert: si existe lo actualiza, si no, lo crea (igual que en PublishModal)
-      await supabase
-        .from('cartas')
-        .upsert(
-          {
-            empresa_id: user.id,
-            nombre_carta: restaurantName.trim(),
-            platos: menu
-          },
-          { onConflict: 'empresa_id' }
-        );
-    };
-
-    // Debounce: espera 2 segundos desde el último cambio antes de guardar
-    const timeoutId = setTimeout(autoSave, 2000);
-    return () => clearTimeout(timeoutId);
-  }, [menu, restaurantName]);
-
-  /**
-   * Lanza la exportación del PDF de la carta.
-   *
-   * Precarga todos los iconos de alérgenos en paralelo antes de llamar al
-   * generador. Los iconos que fallen (e.g. por un PNG faltante) se omiten
-   * silenciosamente: el PDF se genera igualmente, pero esa celda quedará vacía.
-   */
   async function handleExport() {
+    if (!canExport) return;
+    setExportError(null);
     setIsExporting(true);
     try {
       const iconMap: IconMap = {};
@@ -643,15 +552,23 @@ export function MenuBuilder() {
               `/icons/allergens/${allergen.toLowerCase()}.png`,
             );
           } catch {
-            // ignorar
+            throw new Error("No se pudo cargar un icono de alérgenos. Reintenta la descarga del PDF.");
           }
         }),
       );
       await exportCartaPDF(restaurantName, menu, iconMap);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "No se pudo generar el PDF.");
     } finally {
       setIsExporting(false);
     }
   }
+
+  if (!persistence.hydrated) return <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+    <p role="status">{persistence.error || 'Cargando tu carta…'}</p>
+    {persistence.error && <button onClick={persistence.retry} className="px-4 py-2 bg-brand-50 rounded">Reintentar</button>}
+    <Link to="/dashboard">Volver al panel</Link>
+  </div>;
 
   return (
     <div className="min-h-screen bg-surface-50 flex flex-col">
@@ -702,6 +619,17 @@ export function MenuBuilder() {
       </header>
 
       <main className="flex-1 w-full max-w-4xl mx-auto p-4 sm:p-6 flex flex-col gap-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div role="status" aria-live="polite" className="text-sm text-surface-600">
+            {persistence.error || (persistence.saving ? 'Guardando borrador…' : persistence.dirty ? 'Cambios pendientes de guardar' : 'Borrador guardado')}
+            <p className="text-xs mt-1">El QR cambia al publicar la carta. Los platos en el editor se guardan al añadirlos a la carta.</p>
+          </div>
+          <button type="button" onClick={persistence.retry} disabled={persistence.saving} className="px-3 py-2 rounded-lg bg-surface-100">{persistence.error ? 'Reintentar' : 'Guardar ahora'}</button>
+          <button type="button" onClick={() => setImportOpen(true)} className="px-4 py-2 rounded-lg bg-brand-50 text-brand-700 font-semibold">Importar Excel</button>
+        </div>
+        {pending > 0 && <p role="alert" className="rounded-xl bg-warning-50 text-warning-700 p-4">Hay {pending} ingredientes pendientes de revisión. Edita sus platos y confirma los alérgenos antes de publicar o descargar el PDF.</p>}
+        {exportError && <p role="alert" className="text-danger-600">{exportError}</p>}
+
 
         {/* Nombre del establecimiento */}
         <div>
@@ -753,7 +681,7 @@ export function MenuBuilder() {
               )}
             </h2>
           </div>
-          <div className="rounded-xl border border-surface-300 overflow-hidden bg-white shadow-sm">
+          <div className="rounded-xl border border-surface-300 overflow-x-auto bg-white shadow-sm">
             {menu.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-14 text-surface-400">
                 <BookOpen size={28} className="opacity-40" />
@@ -896,7 +824,9 @@ export function MenuBuilder() {
         </section>
       </main>
 
+      <ImportMenuModal isOpen={importOpen} onClose={() => setImportOpen(false)} existingMenu={menu} onImport={appendDishes} />
       <PublishModal
+        ownerId={ownerId!}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onGeneratePDF={() => {

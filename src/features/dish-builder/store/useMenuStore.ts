@@ -17,6 +17,7 @@ export interface Ingredient {
   id: number;
   name: string;
   allergens: AllergenId[];
+  allergensReviewed?: boolean;
 }
 
 /**
@@ -46,6 +47,10 @@ export interface Dish {
  *   aparezcan en el PDF o el QR público.
  */
 interface MenuState {
+  ownerId: string | null;
+  hydrated: boolean;
+  revision: number;
+  savedRevision: number;
   /** Platos comprometidos que forman la carta de alérgenos. */
   menu: Dish[];
   /** Plato en edición en el editor. Invisible en la carta final hasta confirmarse. */
@@ -55,6 +60,11 @@ interface MenuState {
 }
 
 interface MenuActions {
+  setOwner(id: string | null): void;
+  hydrate(ownerId: string, menu: Dish[], name: string): void;
+  markSaved(ownerId: string, revision: number): void;
+  appendDishes(dishes: Dish[]): void;
+  reviewIngredient(id: number, allergens: AllergenId[], reviewed: boolean): void;
   setRestaurantName(name: string): void;
   setDraftName(name: string): void;
   addDraftIngredient(ingredient: Ingredient): void;
@@ -66,7 +76,6 @@ interface MenuActions {
   /** Valida, asigna UUID si es nuevo, guarda/actualiza y resetea el draft. */
   saveDishToMenu(): void;
   removeDishFromMenu(dishId: string): void;
-  setMenu(menu: Dish[]): void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -74,6 +83,10 @@ interface MenuActions {
 const emptyDraft = (): Dish => ({ id: '', name: '', ingredients: [] });
 
 const initialState: MenuState = {
+  ownerId: null,
+  hydrated: false,
+  revision: 0,
+  savedRevision: 0,
   restaurantName: '',
   menu: [],
   draftDish: emptyDraft(),
@@ -85,9 +98,20 @@ export const useMenuStore = create<MenuState & MenuActions>()(
   devtools(
     (set, get) => ({
       ...initialState,
+      setOwner: (ownerId) => {
+        if (get().ownerId !== ownerId) set({ ...initialState, draftDish: emptyDraft(), ownerId }, false, 'menu/changeOwner');
+      },
+      hydrate: (ownerId, menu, restaurantName) => {
+        if (get().ownerId === ownerId && !get().hydrated) set({ menu, restaurantName, hydrated: true, revision: 0, savedRevision: 0 }, false, 'menu/hydrate');
+      },
+      markSaved: (ownerId, revision) => {
+        if (get().ownerId === ownerId) set((s) => ({ savedRevision: Math.max(s.savedRevision, revision) }), false, 'menu/saved');
+      },
+      appendDishes: (dishes) => set((s) => ({ menu: [...s.menu, ...dishes], revision: s.revision + 1 }), false, 'menu/import'),
+      reviewIngredient: (id, allergens, allergensReviewed) => set((s) => ({ draftDish: { ...s.draftDish, ingredients: s.draftDish.ingredients.map((i) => i.id === id ? { ...i, allergens, allergensReviewed } : i) } }), false, 'menu/review'),
 
       setRestaurantName: (name) =>
-        set({ restaurantName: name }, false, 'menu/setRestaurantName'),
+        set((s) => ({ restaurantName: name, revision: s.revision + 1 }), false, 'menu/setRestaurantName'),
 
       setDraftName: (name) =>
         set(
@@ -148,6 +172,7 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           set(
             (s) => ({
               menu: s.menu.map((d) => (d.id === draftDish.id ? { ...draftDish } : d)),
+              revision: s.revision + 1,
               draftDish: emptyDraft(),
             }),
             false,
@@ -157,7 +182,7 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           // Si no tiene ID, es un plato nuevo
           const dish: Dish = { ...draftDish, id: crypto.randomUUID() };
           set(
-            (s) => ({ menu: [...s.menu, dish], draftDish: emptyDraft() }),
+            (s) => ({ menu: [...s.menu, dish], draftDish: emptyDraft(), revision: s.revision + 1 }),
             false,
             'menu/saveDishToMenu'
           );
@@ -166,13 +191,11 @@ export const useMenuStore = create<MenuState & MenuActions>()(
 
       removeDishFromMenu: (dishId: string) =>
         set(
-          (s) => ({ menu: s.menu.filter((d) => d.id !== dishId) }),
+          (s) => ({ menu: s.menu.filter((d) => d.id !== dishId), revision: s.revision + 1, draftDish: s.draftDish.id === dishId ? emptyDraft() : s.draftDish }),
           false,
           'menu/removeDishFromMenu'
         ),
 
-      setMenu: (menu) =>
-        set({ menu }, false, 'menu/setMenu'),
     }),
     { name: 'MenuStore' }
   )

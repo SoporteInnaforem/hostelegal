@@ -11,7 +11,7 @@ import hostelegal from "../../assets/hostelegal.png";
 type SortKey = 'nombre_restaurante' | 'email' | 'fecha_caducidad_suscripcion';
 
 export function AdminDashboard() {
-    const { clientes, isLoading, fetchClientes, darDeBaja, crearCliente, actualizarCliente } = useAdminStore();
+    const { clientes, isLoading, error, fetchClientes, darDeBaja, crearCliente, actualizarCliente } = useAdminStore();
     const navigate = useNavigate();
 
     // Estados de UI
@@ -35,7 +35,7 @@ export function AdminDashboard() {
 
     useEffect(() => {
         fetchClientes();
-    }, []);
+    }, [fetchClientes]);
 
     // ─── LÓGICA DE PROCESAMIENTO DE LA TABLA ───
     const clientesProcesados = useMemo(() => {
@@ -51,7 +51,7 @@ export function AdminDashboard() {
         if (searchTerm) {
             const lowerSearch = searchTerm.toLowerCase();
             filtrados = filtrados.filter(c =>
-                c.nombre_restaurante.toLowerCase().includes(lowerSearch) ||
+                (c.nombre_restaurante || "").toLowerCase().includes(lowerSearch) ||
                 (c.email && c.email.toLowerCase().includes(lowerSearch))
             );
         }
@@ -72,13 +72,14 @@ export function AdminDashboard() {
 
     // 4. Paginación
     const totalPages = Math.ceil(clientesProcesados.length / itemsPerPage) || 1;
+    const visiblePage = Math.min(currentPage, totalPages);
     const paginatedClientes = clientesProcesados.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
+        (visiblePage - 1) * itemsPerPage,
+        visiblePage * itemsPerPage
     );
 
     // Reiniciar página si cambian los filtros
-    useEffect(() => setCurrentPage(1), [searchTerm, tab, itemsPerPage]);
+
 
     const handleSort = (key: SortKey) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -107,7 +108,7 @@ export function AdminDashboard() {
         setIsModalOpen(true);
     };
 
-    const abrirModalEditar = (cliente: any) => {
+    const abrirModalEditar = (cliente: Cliente) => {
         setClienteEditando(cliente);
         setFormData({
             nombre: cliente.nombre_restaurante,
@@ -122,7 +123,7 @@ export function AdminDashboard() {
 
     const handleBaja = async (id: string, nombre: string) => {
         if (window.confirm(`¿Seguro que quieres dar de baja a ${nombre}? Pasará a la lista de inactivos.`)) {
-            await darDeBaja(id);
+            try { await darDeBaja(id); } catch (error) { alert("Error al dar de baja: " + (error as Error).message); }
         }
     };
 
@@ -189,10 +190,10 @@ export function AdminDashboard() {
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-2xl border border-surface-200 shadow-sm">
                     {/* Tabs */}
                     <div className="flex gap-1 bg-surface-100 p-1 rounded-xl w-full lg:w-auto">
-                        <button onClick={() => setTab('activos')} className={`flex-1 lg:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === 'activos' ? 'bg-white text-brand-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
+                        <button onClick={() => { setTab('activos'); setCurrentPage(1); }} className={`flex-1 lg:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === 'activos' ? 'bg-white text-brand-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
                             Activos
                         </button>
-                        <button onClick={() => setTab('inactivos')} className={`flex-1 lg:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === 'inactivos' ? 'bg-white text-danger-600 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
+                        <button onClick={() => { setTab('inactivos'); setCurrentPage(1); }} className={`flex-1 lg:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab === 'inactivos' ? 'bg-white text-danger-600 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>
                             Inactivos
                         </button>
                     </div>
@@ -205,7 +206,7 @@ export function AdminDashboard() {
                                 type="text"
                                 placeholder="Buscar por nombre o email..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                 className="w-full pl-9 pr-4 py-2 border border-surface-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
@@ -215,7 +216,7 @@ export function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* DATA TABLE */}
+                {error && <p role="alert" className="text-danger-600">No se pudieron cargar los clientes: {error}</p>}{/* DATA TABLE */}
                 <div className="bg-white border border-surface-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -281,7 +282,7 @@ export function AdminDashboard() {
                                 <span>Mostrar:</span>
                                 <select
                                     value={itemsPerPage}
-                                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-surface-300 rounded-md py-1 px-2 text-surface-700 bg-white outline-none"
                                 >
                                     <option value={5}>5</option>
@@ -292,17 +293,17 @@ export function AdminDashboard() {
                             </div>
                             <div className="flex items-center gap-4">
                                 <span className="text-sm text-surface-500">
-                                    Página <span className="text-surface-500">{currentPage}</span> de {totalPages}
+                                    Página <span className="text-surface-500">{visiblePage}</span> de {totalPages}
                                 </span>
                                 <div className="flex gap-1">
                                     <button
                                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
+                                        disabled={visiblePage === 1}
                                         className="p-1.5 rounded-md border border-surface-300 text-surface-600 hover:bg-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     ><ChevronLeft size={16} /></button>
                                     <button
                                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
+                                        disabled={visiblePage === totalPages}
                                         className="p-1.5 rounded-md border border-surface-300 text-surface-600 hover:bg-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     ><ChevronRight size={16} /></button>
                                 </div>

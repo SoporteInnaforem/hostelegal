@@ -3,26 +3,7 @@ import { Loader2, CheckCircle2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
-/**
- * Pantalla de establecimiento de nueva contraseña tras recibir el enlace mágico.
- *
- * Lógica de negocio:
- * - Este componente es el destino del enlace que Supabase envía por email.
- *   El token puede llegar como fragmento `#access_token=...&type=recovery`
- *   (flujo implícito) o como `?code=...` (flujo PKCE, más seguro).
- *
- * - El estado `hasValidSession` (null | boolean) actúa como semáforo de tres
- *   fases para evitar que el usuario vea el formulario antes de que el SDK
- *   haya procesado el token de forma asíncrona:
- *   · `null`  → procesando (spinner bloqueante)
- *   · `false` → enlace inválido o caducado (pantalla de error con CTA)
- *   · `true`  → sesión de recuperación activa (formulario visible)
- *
- * - El evento `SIGNED_OUT` puede dispararse como "falso positivo" al inicio
- *   cuando el SDK limpia el storage de sesiones anteriores. Se ignora si la
- *   URL contiene tokens de recuperación para evitar mostrar "enlace caducado"
- *   en el primer instante de carga.
- */
+/** Updates passwords after Supabase has processed the recovery callback. */
 export function ActualizarPassword() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,56 +25,32 @@ export function ActualizarPassword() {
 
     const navigate = useNavigate();
 
-    /**
-     * Verifica la validez del token de recuperación al montar el componente.
-     *
-     * Estrategia de doble comprobación:
-     * 1. `getSession()` síncronamente: si ya hay sesión activa (e.g. el usuario
-     *    recargó la página), la marcamos válida de inmediato.
-     * 2. `onAuthStateChange`: escucha el evento `PASSWORD_RECOVERY` o `SIGNED_IN`
-     *    que Supabase emite tras procesar el token de la URL de forma asíncrona.
-     * 3. Si la URL no tiene tokens y no hay sesión, el enlace es inválido.
-     */
     useEffect(() => {
-        const checkSession = async () => {
-            console.log("1. URL actual:", window.location.href);
-
-            const { data: { session }, error } = await supabase.auth.getSession();
-            console.log("2. Sesión inicial:", session ? "Hay sesión" : "No hay sesión", "| Error:", error);
-
-            const urlTieneToken =
-                window.location.hash.includes('access_token') ||
-                window.location.hash.includes('type=recovery') ||
-                window.location.search.includes('code');
-
-            console.log("3. ¿La URL trae token de recuperación?", urlTieneToken);
-
-            if (session) {
+        let active = true;
+        const hasRecoveryMarker = window.location.hash.includes('type=recovery') ||
+            window.location.search.includes('code=');
+        // A malformed/expired callback must never leave the screen spinning forever.
+        const deadline = window.setTimeout(() => {
+            if (active) setHasValidSession(current => current ?? false);
+        }, 15000);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!active) return;
+            if ((event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && hasRecoveryMarker)) && session) {
                 setHasValidSession(true);
-            } else if (!urlTieneToken) {
+            } else if (event === "SIGNED_OUT") {
                 setHasValidSession(false);
             }
-        };
-
-        checkSession();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            console.log("4. EVENTO SUPABASE:", event, "| Sesión:", session ? "Sí" : "No");
-
-            if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-                setHasValidSession(true);
-            }
-            // Si la URL trae un token, ignoramos el evento SIGNED_OUT porque es un falso positivo 
-            // causado por limpiar el almacenamiento antiguo.
-            else if (event === "SIGNED_OUT") {
-                const urlTieneToken = window.location.hash.includes('type=recovery') || window.location.search.includes('code');
-                if (!urlTieneToken) {
-                    setHasValidSession(false);
-                }
-            }
         });
-
-        return () => subscription.unsubscribe();
+        void supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (active) setHasValidSession(!error && Boolean(session) && hasRecoveryMarker);
+        }).catch(() => {
+            if (active) setHasValidSession(false);
+        });
+        return () => {
+            active = false;
+            window.clearTimeout(deadline);
+            subscription.unsubscribe();
+        };
     }, []);
 
     /**
@@ -150,8 +107,8 @@ export function ActualizarPassword() {
                 navigate("/dashboard");
             }, 3000);
 
-        } catch (err: any) {
-            setError(err.message || "Ocurrió un error al actualizar la contraseña.");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Ocurrió un error al actualizar la contraseña.");
         } finally {
             setIsLoading(false);
         }

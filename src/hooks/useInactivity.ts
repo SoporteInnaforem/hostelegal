@@ -13,7 +13,6 @@ export function useInactivity(isActive: boolean, minutosInactividad = 30) {
         if (ultimaActividad) {
             const tiempoInactivo = Date.now() - parseInt(ultimaActividad, 10);
             if (tiempoInactivo > minutosInactividad * 60 * 1000) {
-                console.log("Sesión caducada por tener la ventana cerrada demasiado tiempo");
                 supabase.auth.signOut();
                 return; // Cortamos aquí para que no inicie el temporizador
             }
@@ -21,7 +20,6 @@ export function useInactivity(isActive: boolean, minutosInactividad = 30) {
 
         // 2. FUNCIÓN DE CIERRE (Cuando la ventana está abierta)
         const cerrarSesionPorInactividad = async () => {
-            console.log("Sesión cerrada por inactividad con ventana abierta");
             localStorage.removeItem("ultimaActividadHostelegal"); // Limpiamos la prueba
             await supabase.auth.signOut();
         };
@@ -46,6 +44,7 @@ export function useInactivity(isActive: boolean, minutosInactividad = 30) {
             "keydown",
             "wheel",
             "touchstart",
+            "hostelegal:form-activity",
         ];
 
         // Arrancamos el motor

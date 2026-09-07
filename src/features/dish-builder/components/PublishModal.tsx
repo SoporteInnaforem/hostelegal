@@ -3,16 +3,19 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Download } from "lucide-react";
 import { FileText, QrCode, X, Loader2, ExternalLink } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import type { Dish } from '../store/useMenuStore';
+import { pendingIngredients } from '../utils/menuValidation';
 
 interface PublishModalProps {
     isOpen: boolean;
     onClose: () => void;
     onGeneratePDF: () => void;
-    platos: any[];
+    platos: Dish[];
+    ownerId: string;
     restaurantName: string;
 }
 
-export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restaurantName }: PublishModalProps) {
+export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restaurantName, ownerId }: PublishModalProps) {
     const [isPublishing, setIsPublishing] = useState(false);
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -24,21 +27,13 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
         setError(null);
 
         try {
+            if (pendingIngredients(platos)) throw new Error('Revisa los alérgenos pendientes antes de publicar.');
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("No hay sesión activa");
+            if (!user || user.id !== ownerId) throw new Error("La sesión ha cambiado. Vuelve a abrir tu carta.");
 
-            const { data, error: dbError } = await supabase
-                .from('cartas')
-                .upsert(
-                    {
-                        empresa_id: user.id,
-                        platos: platos,
-                        nombre_carta: restaurantName.trim()
-                    },
-                    { onConflict: 'empresa_id' }
-                )
-                .select('id')
-                .single();
+            const { data, error: dbError } = await supabase.rpc('publicar_carta', {
+                p_empresa_id: ownerId, p_platos: platos, p_nombre: restaurantName.trim(),
+            });
 
             if (dbError) throw dbError;
 
@@ -59,18 +54,21 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
                 dominioPublico = "https://cartahostelegal.vercel.app";
             }
 
-            const url = `${dominioPublico}/carta/${data.id}`;
+            const publicOrigin = import.meta.env.VITE_PUBLIC_MENU_URL || dominioPublico;
+            const url = `${publicOrigin.replace(/\/$/, '')}/carta/${data}`;
             setPublicUrl(url);
 
-        } catch (err: any) {
-            setError(err.message || "Error al generar la carta digital");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Error al generar la carta digital. Comprueba la conexión y reintenta.");
         } finally {
             setIsPublishing(false);
         }
     };
 
     const handleCloseModal = () => {
+        if (isPublishing) return;
         setPublicUrl(null);
+        setError(null);
         onClose();
     };
 
@@ -95,7 +93,7 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
                     <h3 className="text-lg font-bold text-surface-800">
                         {publicUrl ? "Tu Carta Digital" : "Publicar Carta"}
                     </h3>
-                    <button onClick={handleCloseModal} className="text-surface-400 hover:text-surface-700 transition-colors">
+                    <button onClick={handleCloseModal} disabled={isPublishing} aria-label="Cerrar publicación" className="text-surface-400 hover:text-surface-700 transition-colors">
                         <X size={20} />
                     </button>
                 </div>
@@ -153,7 +151,7 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
                                     value={publicUrl}
                                     size={200}
                                     level="H"
-                                    includeMargin={false}
+                                    marginSize={4}
                                 />
                             </div>
                             <h4 className="font-bold text-surface-800 mb-2">¡QR Listo!</h4>

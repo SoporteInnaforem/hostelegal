@@ -53,8 +53,8 @@ export function RecuperarPassword() {
             if (error) throw error;
 
             setIsSuccess(true);
-        } catch (err: any) {
-            setError(err.message || "Ocurrió un error al enviar el correo.");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Ocurrió un error al enviar el correo.");
         } finally {
             setIsLoading(false);
         }

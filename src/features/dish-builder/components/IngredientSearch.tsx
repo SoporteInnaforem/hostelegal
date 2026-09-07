@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Search, PackageSearch, X, Plus } from "lucide-react";
 import { useMenuStore } from "../store/useMenuStore";
 import { INGREDIENTS_DB } from "../../../data/ingredients";
+import type { AllergenId } from '../utils/allergens';
 
 // ─── Tipos Extendidos ────────────────────────────────────────────────────────
 // Este tipo nos permite mezclar los ingredientes de la BD con los "inventados"
 type DisplayItem = {
   id: number;
   name: string;
-  allergens: any[];
+  allergens: AllergenId[];
   isCustom?: boolean;
 };
 
@@ -34,12 +35,12 @@ export function IngredientSearch() {
   // 3. Si ha escrito algo y no es exactamente igual a la BD, creamos la opción "Añadir..."
   const customOption: DisplayItem | null =
     trimmed && !isExactMatch
-      ? { id: Date.now(), name: trimmed, allergens: [], isCustom: true }
+      ? { id: -1, name: trimmed, allergens: [], isCustom: true }
       : null;
 
   // 4. Juntamos la opción custom (si existe) colocándola la primera de la lista
   const displayResults: DisplayItem[] = customOption
-    ? [customOption, ...dbResults]
+    ? [...dbResults, customOption]
     : dbResults;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -77,9 +78,10 @@ export function IngredientSearch() {
 
   function handleSelect(item: DisplayItem) {
     addDraftIngredient({
-      id: item.id,
+      id: item.isCustom ? Date.now() * 1000 + Math.floor(Math.random() * 1000) : item.id,
       name: item.name,
       allergens: item.allergens,
+      allergensReviewed: !item.isCustom,
     });
     setQuery("");
     setIsOpen(false);
@@ -98,7 +100,7 @@ export function IngredientSearch() {
         e.preventDefault();
         setActiveIndex((i) => Math.max(i - 1, 0));
         break;
-      case "Enter":
+      case "Enter": {
         e.preventDefault();
         // Si el usuario presiona Enter rápido, elige el seleccionado o el primero por defecto
         const indexToSelect = activeIndex >= 0 ? activeIndex : 0;
@@ -107,6 +109,7 @@ export function IngredientSearch() {
           handleSelect(item);
         }
         break;
+      }
       case "Escape":
         setIsOpen(false);
         setActiveIndex(-1);
@@ -133,6 +136,7 @@ export function IngredientSearch() {
           ref={inputRef}
           id="ingredient-search-input"
           type="search"
+          maxLength={160}
           autoComplete="off"
           spellCheck={false}
           value={query}

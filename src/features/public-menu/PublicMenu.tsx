@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { Loader2, ChefHat, AlertCircle } from "lucide-react";
 import { AllergenIcon } from "../dish-builder/components/AllergenIcon";
 import type { Dish } from "../dish-builder/store/useMenuStore";
+import { parseStoredMenu } from "../dish-builder/utils/menuValidation";
 
 /**
  * Vista pública de la carta de alérgenos. Accesible sin autenticación.
@@ -32,55 +33,41 @@ export function PublicMenu() {
     /**
      * Recupera la carta de alérgenos desde Supabase usando el ID de la URL.
      *
-     * La consulta hace un JOIN implícito con `empresas` para obtener el nombre
-     * del restaurante en una sola petición, evitando un segundo round-trip.
+     * La consulta usa una RPC pública que devuelve únicamente la versión
+     * publicada; los borradores y la tabla subyacente no son públicos.
      *
      * Prioridad del nombre mostrado en cabecera:
      * 1. `nombre_carta` (nombre personalizado de esta carta concreta).
      * 2. `empresa.nombre_restaurante` (nombre genérico del perfil del local).
      * 3. "Carta de Alérgenos" como fallback si ningún dato está disponible.
      *
-     * El `Array.isArray` en `data.empresas` maneja la ambigüedad del tipo
-     * devuelto por Supabase en JOINs: puede ser un objeto o un array según
-     * cómo el cliente JS infiera la cardinalidad de la relación.
      */
     useEffect(() => {
+        let active = true;
         async function cargarCarta() {
             if (!id) return;
+            setIsLoading(true);
+            setError(null);
 
             try {
                 // 1. Buscamos la carta en Supabase usando la ID de la URL
                 const { data, error: dbError } = await supabase
-                    .from("cartas")
-                    .select(`
-            platos,
-            actualizado_en,
-            nombre_carta,
-            empresas (
-              nombre_restaurante
-            )
-          `)
-                    .eq("id", id)
-                    .single();
-
-                if (dbError) throw dbError;
-
-                // 2. Guardamos los datos en el estado local
-                setPlatos(data.platos);
-                const empresa = Array.isArray(data.empresas) ? data.empresas[0] : data.empresas;
-
-                // 3. LA MAGIA DE LA PRIORIDAD: Primero el nombre de la carta, luego el de la empresa.
-                setNombreRestaurante(data.nombre_carta || empresa?.nombre_restaurante || "Carta de Alérgenos");
+                    .rpc('obtener_carta_publica', { p_id: id }).maybeSingle<{ platos: unknown; nombre_carta: string | null }>();
+                if (dbError || !data) throw dbError || new Error('Carta no disponible');
+                if (!active) return;
+                setPlatos(parseStoredMenu(data.platos));
+                setNombreRestaurante(data.nombre_carta || "Carta de Alérgenos");
 
             } catch (err) {
                 console.error("Error cargando carta:", err);
-                setError("No hemos podido cargar esta carta. Es posible que el enlace haya caducado o sea incorrecto.");
+                if (active) setError("No hemos podido cargar esta carta. Es posible que el enlace haya caducado o sea incorrecto.");
             } finally {
-                setIsLoading(false);
+                if (active) setIsLoading(false);
             }
         }
 
-        cargarCarta();
+        void cargarCarta();
+        return () => { active = false; };
     }, [id]);
 
     // Pantalla de Carga

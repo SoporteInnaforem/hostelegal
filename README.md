@@ -37,8 +37,10 @@ Control de Análisis de Peligros y Puntos de Control Críticos directamente desd
 ### 🥜 Constructor de Cartas de Alérgenos
 Editor visual interactivo (`/constructor`) para crear menús con información de alérgenos por plato. Genera un **QR único** que apunta a una carta pública en tiempo real (`/carta/:id`) accesible para cualquier comensal sin necesidad de login.
 
+Incluye importación guiada desde Excel: la aplicación genera una plantilla `.xlsx`, valida las filas, muestra una vista previa y marca como pendientes los ingredientes cuyos alérgenos no se hayan revisado. La carta pública solo cambia al confirmar su publicación.
+
 ### 📁 Gestión Documental
-Módulo centralizado (`/documentacion`) para subir, organizar y gestionar documentación legal y operativa del establecimiento. Integrado con Supabase Storage.
+Módulo (`/documentacion`) que integra un formulario de Tally para solicitar la generación del plan de autocontrol. La cuota se reserva desde la automatización de servidor; el navegador no puede modificarla.
 
 ### 🗄️ Repositorio
 Sección dedicada (`/repositorio`) para el acceso rápido a plantillas, normativas y recursos descargables del sector.
@@ -221,6 +223,7 @@ Crea un archivo `.env.local` en la raíz del proyecto con tus credenciales de Su
 # .env.local
 VITE_SUPABASE_URL=https://<tu-proyecto-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<tu-anon-key-publica>
+VITE_PUBLIC_MENU_URL=https://tu-dominio-publico.example
 ```
 
 > **⚠️ Importante:** La `SUPABASE_SERVICE_ROLE_KEY` **nunca** debe incluirse aquí. Se configura directamente como secret en el panel de Supabase para uso exclusivo de las Edge Functions.
@@ -270,6 +273,9 @@ supabase login
 # Vincular con tu proyecto remoto
 supabase link --project-ref <tu-proyecto-ref>
 
+# Aplicar migraciones primero en un entorno de ensayo
+supabase db push
+
 # Desplegar la Edge Function
 supabase functions deploy admin-users
 ```
@@ -285,7 +291,10 @@ Configura el secret de la Service Role Key desde el panel de Supabase:
 |---|---|---|
 | `VITE_SUPABASE_URL` | URL pública de tu proyecto Supabase | ✅ Sí |
 | `VITE_SUPABASE_ANON_KEY` | Clave anónima pública de Supabase | ✅ Sí |
+| `VITE_PUBLIC_MENU_URL` | Origen público utilizado en los QR, sin barra final | ✅ En producción |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio con privilegios totales | ⚙️ Solo en Edge Functions |
+
+Consulta [`supabase/DEPLOYMENT.md`](supabase/DEPLOYMENT.md) antes de desplegar las migraciones, la función administrativa y la contabilización documental.
 
 ---
 

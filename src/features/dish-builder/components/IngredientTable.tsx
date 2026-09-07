@@ -5,6 +5,29 @@ import type { Ingredient } from '../store/useMenuStore';
 import { ALLERGEN_LABEL } from '../utils/allergens';
 import type { AllergenId } from '../utils/allergens';
 import { AllergenIcon } from './AllergenIcon';
+import { isIngredientReviewed } from '../utils/menuValidation';
+
+function IngredientReview({ ingredient }: { ingredient: Ingredient }) {
+  const review = useMenuStore((s) => s.reviewIngredient);
+  const reviewed = isIngredientReviewed(ingredient);
+  return <div className="min-w-48">
+    {!reviewed && <p className="text-warning-600 text-xs font-semibold mb-2">Pendiente de revisión</p>}
+    {reviewed && <AllergenCell allergens={ingredient.allergens} />}
+    <details className="mt-2 text-xs">
+      <summary className="cursor-pointer text-brand-600">Revisar alérgenos de {ingredient.name}</summary>
+      <fieldset className="grid grid-cols-2 gap-2 mt-2">
+        <legend className="sr-only">Alérgenos de {ingredient.name}</legend>
+        {(Object.keys(ALLERGEN_LABEL) as AllergenId[]).map((id) => <label key={id} className="flex items-center gap-1">
+          <input type="checkbox" checked={ingredient.allergens.includes(id)} onChange={(e) => review(ingredient.id, e.target.checked ? [...ingredient.allergens, id] : ingredient.allergens.filter((a) => a !== id), false)} />
+          {ALLERGEN_LABEL[id]}
+        </label>)}
+      </fieldset>
+      <button type="button" className="mt-2 px-3 py-2 rounded bg-brand-50 text-brand-700" onClick={() => review(ingredient.id, ingredient.allergens, true)}>
+        {ingredient.allergens.length ? 'Confirmar alérgenos seleccionados' : 'Confirmar que no contiene alérgenos de la lista'}
+      </button>
+    </details>
+  </div>;
+}
 
 function AllergenCell({ allergens }: { allergens: AllergenId[] }) {
   if (allergens.length === 0)
@@ -86,7 +109,7 @@ export function IngredientTable() {
                 {ingredients.map((ingredient, idx) => (
                   <tr key={ingredient.id} className={['transition-colors duration-100 hover:bg-brand-50', idx % 2 !== 0 ? 'bg-surface-50' : 'bg-white'].join(' ')}>
                     <td className="px-4 py-3 font-medium text-surface-800 whitespace-nowrap">{ingredient.name}</td>
-                    <td className="px-4 py-3"><AllergenCell allergens={ingredient.allergens} /></td>
+                    <td className="px-4 py-3"><IngredientReview ingredient={ingredient} /></td>
                     <td className="px-4 py-3 text-center"><DeleteButton ingredient={ingredient} /></td>
                   </tr>
                 ))}

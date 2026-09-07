@@ -17,6 +17,8 @@ import { Loader2 } from "lucide-react";
 
 // Hook de inactividad
 import { useInactivity } from "./hooks/useInactivity";
+import { useMenuStore } from "./features/dish-builder/store/useMenuStore";
+import { useAdminStore } from "./features/admin/store/useAdminStore";
 
 // Pantalla anti-curiosos
 const Pantalla404 = () => (
@@ -41,10 +43,13 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
+    let requestVersion = 0;
 
     const fetchRoleAndSetSession = async (currentSession: Session | null) => {
+      const version = ++requestVersion;
+      useMenuStore.getState().setOwner(currentSession?.user.id ?? null);
       if (!currentSession) {
-        if (isMounted) {
+        if (isMounted && version === requestVersion) {
           setSession(null);
           setIsAdmin(false);
           setIsExpired(false);
@@ -62,11 +67,12 @@ export default function App() {
 
         if (error) throw error;
 
-        if (isMounted) {
+        if (isMounted && version === requestVersion) {
           setIsAdmin(!!data?.es_admin);
 
           if (data && !data.es_admin) {
-            const caducado = new Date(data.fecha_caducidad_suscripcion) < new Date();
+            const caducado = Boolean(data.fecha_caducidad_suscripcion) &&
+              new Date(data.fecha_caducidad_suscripcion).getTime() <= Date.now();
             setIsExpired(caducado);
           } else {
             setIsExpired(false);
@@ -76,38 +82,44 @@ export default function App() {
         }
       } catch (error) {
         console.error("Error de conexión al verificar el rol:", error);
-        if (isMounted) {
+        if (isMounted && version === requestVersion) {
           setIsAdmin(false);
           setIsExpired(true);
           setSession(currentSession);
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && version === requestVersion) {
           setIsLoading(false);
         }
       }
     };
 
+    const initialVersion = requestVersion;
     supabase.auth.getSession().then(({ data: { session } }) => {
-      fetchRoleAndSetSession(session);
+      if (isMounted && initialVersion === requestVersion) void fetchRoleAndSetSession(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (event === "SIGNED_OUT") {
+        ++requestVersion;
+        useMenuStore.getState().setOwner(null);
+        useAdminStore.setState({ clientes: [], isLoading: false });
         // 1. Limpiamos el reloj al cerrar sesión
         localStorage.removeItem("ultimaActividadHostelegal");
 
         if (isMounted) {
           setSession(null);
           setIsAdmin(false);
+          setIsExpired(false);
           setIsLoading(false);
         }
       } else if (event === "SIGNED_IN") {
         // 2. Reiniciamos el reloj al hacer login para que entre "fresco"
-        localStorage.setItem("ultimaActividadHostelegal", Date.now().toString());
+        if (useMenuStore.getState().ownerId !== currentSession?.user.id) localStorage.setItem("ultimaActividadHostelegal", Date.now().toString());
 
         if (isMounted) setIsLoading(true);
-        fetchRoleAndSetSession(currentSession);
+        // Defer Supabase queries until the auth callback releases its lock.
+        setTimeout(() => { if (isMounted) void fetchRoleAndSetSession(currentSession); }, 0);
       } else if (currentSession) {
         if (isMounted) setSession(currentSession);
       }

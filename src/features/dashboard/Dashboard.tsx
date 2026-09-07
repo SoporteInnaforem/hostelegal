@@ -79,11 +79,12 @@ export function Dashboard() {
                 if (error) throw error;
 
                 if (data) {
-                    const hoy = new Date();
-                    const fechaCaducidad = new Date(data.fecha_caducidad_suscripcion);
+                    const fechaCaducidad = data.fecha_caducidad_suscripcion
+                        ? new Date(data.fecha_caducidad_suscripcion).getTime()
+                        : null;
 
                     // Comprobación de suscripción
-                    if (fechaCaducidad < hoy) {
+                    if (fechaCaducidad !== null && fechaCaducidad <= Date.now()) {
                         setIsSubscriptionExpired(true);
                         setIsLoading(false); // Dejamos de cargar para mostrar el modal de bloqueo
                         return;

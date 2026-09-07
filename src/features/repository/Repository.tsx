@@ -60,7 +60,7 @@ export function Repository() {
                 const filesOnly = data.files.filter((f: DriveFile) => f.mimeType !== "application/vnd.google-apps.folder");
 
                 setArchivos(filesOnly);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(err);
                 setError("Error al cargar los documentos. Vuelve a intentarlo más tarde.");
             } finally {
