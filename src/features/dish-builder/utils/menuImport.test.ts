@@ -2,9 +2,45 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { zipSync } from 'fflate';
-import { createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
+import { CHECK_HEADERS, createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
 
 const header = ['Plato', 'Ingrediente', 'Alérgenos'];
+const checkRow = (name: string, marks: Record<string, unknown>) => ['Plato', name, ...CHECK_HEADERS.slice(2).map(label => marks[label] ?? '')];
+
+test('lee marcas múltiples, Ninguno y casillas booleanas sin inferir revisión de filas vacías', () => {
+  const result = parseMenuRows([CHECK_HEADERS,
+    checkRow('Pan', { Gluten: '✓', Sésamo: 'X', Huevos: true, Soja: false }),
+    checkRow('Sal', { Ninguno: 'Sí' }), checkRow('Caldo', { Gluten: '☐' }),
+  ]);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.dishes[0].ingredients[0].allergens, ['GLUTEN', 'HUEVOS', 'SESAMO']);
+  assert.equal(result.dishes[0].ingredients[1].allergensReviewed, true);
+  assert.equal(result.pending, 1);
+});
+
+test('rechaza marcas contradictorias, fórmulas, valores desconocidos y cabeceras desplazadas', () => {
+  const result = parseMenuRows([CHECK_HEADERS,
+    checkRow('Pan', { Gluten: '✓', Ninguno: '✓' }),
+    checkRow('Sal', { Ninguno: { formula: 'TRUE()', result: true } }),
+    checkRow('Caldo', { Apio: 'quizás' }),
+  ]);
+  assert.deepEqual(result.errors.map(e => e.row), [2, 3, 4]);
+  assert.ok(parseMenuRows([[...CHECK_HEADERS].reverse(), checkRow('Sal', { Ninguno: '✓' })]).errors.length);
+});
+
+test('la plantilla marcada se guarda y se importa con todos los alérgenos de la aplicación', async () => {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await createMenuTemplateBuffer());
+  const sheet = workbook.getWorksheet('Carta')!;
+  sheet.spliceRows(2, 3);
+  sheet.getRow(2).values = checkRow('Completo', Object.fromEntries(CHECK_HEADERS.slice(2, -1).map(label => [label, '✓'])));
+  assert.equal(sheet.getCell('C3').dataValidation.type, 'list');
+  const buffer = await workbook.xlsx.writeBuffer();
+  const result = await readMenuFile(new File([new Uint8Array(buffer)], 'carta.xlsx'), []);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.dishes[0].ingredients[0].allergens.length, 14);
+  assert.equal(result.pending, 0);
+});
 test('agrupa platos sin distinguir acentos y conserva revisión explícita', () => {
   const result = parseMenuRows([header, ['Ensaláda', 'Tomate', 'Ninguno'], [' ENSALADA ', 'Queso', 'Lácteos; GLUTEN'], ['Sopa', 'Caldo', '']]);
   assert.deepEqual(result.errors, []);

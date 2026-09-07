@@ -45,7 +45,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
         <h2 id="import-menu-title" className="text-xl font-bold">Importar carta desde Excel</h2>
         <button type="button" onClick={onClose} className={buttonClass} aria-label="Cerrar importación">Cerrar</button>
       </div>
-      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla, escribe una fila por ingrediente y revisa el resultado antes de añadir los platos a tu carta.</p>
+      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla, escribe una fila por ingrediente y marca ✓ en las columnas de sus alérgenos. Marca «Ninguno» si no contiene ninguno. Revisa el resultado antes de añadir los platos a tu carta.</p>
       <p className="mt-2 text-sm text-slate-600">Solo .xlsx · máximo 2 MB, 2000 filas, 300 platos y 100 ingredientes por plato. Los platos existentes no se sustituyen.</p>
       <div className="my-5 flex flex-wrap items-center gap-4">
         <button type="button" className={buttonClass} disabled={busy} onClick={async () => {

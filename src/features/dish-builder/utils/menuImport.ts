@@ -8,6 +8,17 @@ export interface ImportIssue { row: number; message: string }
 export interface MenuImportResult { dishes: Dish[]; errors: ImportIssue[]; pending: number }
 export const normalizeImportName = (value: string) => value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').replace(/\s+/g, ' ');
 const allergenNames = new Map<string, AllergenId>(Object.entries(ALLERGEN_LABEL).flatMap(([id, label]) => [[normalizeImportName(id), id as AllergenId], [normalizeImportName(label), id as AllergenId]]));
+export const CHECK_HEADERS = ['Plato', 'Ingrediente', ...Object.values(ALLERGEN_LABEL), 'Ninguno'];
+
+function readCheck(value: unknown): boolean | null {
+  if (value == null || value === false || value === 0) return false;
+  if (value === true || value === 1) return true;
+  if (typeof value !== 'string') return null;
+  const mark = normalizeImportName(value);
+  if (['', '☐', 'no', 'false', 'falso', '0'].includes(mark)) return false;
+  if (['✓', '✔', '☑', 'x', 'si', 'true', 'verdadero', '1'].includes(mark)) return true;
+  return null;
+}
 
 /** Pure validation; no persistence and no catalogue inference. Row numbers match Excel. */
 export function parseMenuRows(rows: unknown[][], existingMenu: Dish[] = []): MenuImportResult {
@@ -15,8 +26,23 @@ export function parseMenuRows(rows: unknown[][], existingMenu: Dish[] = []): Men
   const error = (row: number, message: string) => result.errors.push({ row, message });
   if (rows.length > IMPORT_LIMITS.rows + 1) { error(0, 'El archivo supera las 2000 filas de datos.'); return result; }
   const header = rows[0] ?? [];
+  if (header.length === CHECK_HEADERS.length && header.every((v, i) => typeof v === 'string' && normalizeImportName(v) === normalizeImportName(CHECK_HEADERS[i]))) {
+    const converted: unknown[][] = [['Plato', 'Ingrediente', 'Alérgenos']];
+    rows.slice(1).forEach((row, index) => {
+      const marks = CHECK_HEADERS.slice(2).map((_, i) => readCheck(row[i + 2]));
+      const invalid = marks.findIndex(mark => mark === null);
+      if (invalid >= 0 || row.slice(CHECK_HEADERS.length).some(v => v != null && v !== '')) {
+        error(index + 2, invalid >= 0 ? `Marca no válida en «${CHECK_HEADERS[invalid + 2]}». Usa ✓, X, Sí o deja la celda vacía; no uses fórmulas.` : 'Hay datos fuera de las columnas de la plantilla.');
+        converted.push([]);
+      } else {
+        converted.push([row[0], row[1], CHECK_HEADERS.slice(2).filter((_, i) => marks[i]).join('; ')]);
+      }
+    });
+    const parsed = parseMenuRows(converted, existingMenu);
+    return { ...parsed, errors: [...result.errors, ...parsed.errors.filter(e => e.row !== 0 || !result.errors.length)].sort((a, b) => a.row - b.row) };
+  }
   if (header.length !== 3 || header.some((v, i) => typeof v !== 'string' || normalizeImportName(v) !== ['plato', 'ingrediente', 'alergenos'][i])) {
-    error(1, 'Usa exactamente las columnas Plato, Ingrediente y Alérgenos, en ese orden.'); return result;
+    error(1, 'Conserva las cabeceras de la plantilla: Plato, Ingrediente, los 14 alérgenos y Ninguno. También se admite la plantilla antigua de tres columnas.'); return result;
   }
   const existing = new Set(existingMenu.map(d => normalizeImportName(d.name)));
   const usedIds = new Set(existingMenu.flatMap(d => d.ingredients.map(i => i.id)));
@@ -62,9 +88,9 @@ export function parseMenuWorkbook(workbook: Workbook, existingMenu: Dish[] = [])
   if (!sheet) return fail('No se encuentra la hoja «Carta». Descarga y utiliza la plantilla.');
   if (sheet.model.merges?.length) return fail('La hoja Carta contiene celdas combinadas. Sepáralas antes de importar.');
   if (sheet.rowCount > IMPORT_LIMITS.rows + 1) return fail('El archivo supera las 2000 filas de datos.');
-  if (sheet.columnCount > 3) return fail('La hoja Carta debe contener únicamente las tres columnas de la plantilla.');
+  if (sheet.columnCount > CHECK_HEADERS.length) return fail('La hoja Carta contiene columnas fuera de la plantilla.');
   const rows: unknown[][] = [];
-  for (let n = 1; n <= sheet.rowCount; n++) rows.push([1, 2, 3].map(c => sheet.getRow(n).getCell(c).value));
+  for (let n = 1; n <= sheet.rowCount; n++) rows.push(Array.from({ length: sheet.columnCount }, (_, c) => sheet.getRow(n).getCell(c + 1).value));
   return parseMenuRows(rows, existingMenu);
 }
 
@@ -129,19 +155,31 @@ export async function createMenuTemplateBuffer() {
   const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Carta');
-  sheet.columns = [{ header: 'Plato', width: 36 }, { header: 'Ingrediente', width: 32 }, { header: 'Alérgenos', width: 48 }];
-  sheet.addRows([['EJEMPLO: Ensalada (borrar)', 'Tomate', 'Ninguno'], ['EJEMPLO: Ensalada (borrar)', 'Queso', 'Lácteos'], ['EJEMPLO: Tostada (borrar)', 'Pan', 'Gluten; Sésamo']]);
+  sheet.columns = CHECK_HEADERS.map((header, i) => ({ header, width: i < 2 ? 30 : 13 }));
+  const example = (dish: string, ingredient: string, labels: string[]) => [dish, ingredient, ...CHECK_HEADERS.slice(2).map(label => labels.includes(label) ? '✓' : '')];
+  sheet.addRows([example('EJEMPLO: Ensalada (borrar)', 'Tomate', ['Ninguno']), example('EJEMPLO: Ensalada (borrar)', 'Queso', ['Lácteos']), example('EJEMPLO: Tostada (borrar)', 'Pan', ['Gluten', 'Sésamo'])]);
+  for (let row = 2; row <= IMPORT_LIMITS.rows + 1; row++) {
+    for (let column = 3; column <= CHECK_HEADERS.length; column++) {
+      const cell = sheet.getCell(row, column);
+      cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"✓,☐"'], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Marca no válida', error: 'Selecciona ✓ para marcar o ☐ para desmarcar.' };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+  }
+  sheet.getRow(1).height = 48;
+  sheet.getRow(1).alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
   sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006B61' } };
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 2 }];
   const instructions = workbook.addWorksheet('Instrucciones');
   instructions.getColumn(1).width = 115;
   instructions.addRows([
     ['IMPORTAR CARTA — HOSTELEGAL'],
     ['Borra las filas de EJEMPLO de Carta y escribe tus datos. Una fila por ingrediente. Repite el nombre del plato en cada fila.'],
-    ['Conserva la hoja Carta y sus tres cabeceras. No uses fórmulas ni celdas combinadas.'],
-    ['Alérgenos: separa los valores con punto y coma (;). Escribe Ninguno solo si has revisado su ausencia.'],
-    ['Alérgenos en blanco: pendiente de revisión. Podrás importar, pero deberás revisarlos antes de publicar o generar el PDF.'],
+    ['Conserva la hoja Carta y todas sus cabeceras. No uses fórmulas ni celdas combinadas.'],
+    ['Marca ✓ en la columna de cada alérgeno presente. Selecciona la marca con el desplegable de la celda. Puedes marcar varios.'],
+    ['Marca Ninguno solo si has confirmado la ausencia de alérgenos. No lo combines con otras marcas.'],
+    ['Para desmarcar, borra la celda o selecciona ☐. También se leen X, Sí y valores verdadero/falso de casillas en celda.'],
+    ['Sin ninguna marca: pendiente de revisión antes de publicar o generar el PDF.'],
     [`Valores admitidos: ${Object.values(ALLERGEN_LABEL).join('; ')}; Ninguno.`],
     ['Consulta las fichas y etiquetas reales de tus ingredientes. La aplicación no deduce alérgenos del nombre.'],
     ['La importación añade platos. No sustituye platos existentes; los nombres repetidos se rechazan.'],

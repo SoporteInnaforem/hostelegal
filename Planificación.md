@@ -73,6 +73,9 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ## Registro de validación
 
+- Plantilla Excel por columnas: los 14 alérgenos proceden del catálogo de la aplicación, con marcas ✓/☐ y opción Ninguno. Cabeceras y nombres de plato/ingrediente permanecen visibles al desplazarse.
+- Importador compatible con las marcas y las plantillas antiguas. Verificado el recorrido de generación, guardado y lectura de un archivo real, incluyendo los 14 alérgenos, contradicciones y fórmulas rechazadas.
+
 - [x] Pruebas de estado y validación de carta.
 - [x] Pruebas de mensajes Tally.
 - [x] Pruebas del importador Excel, incluida plantilla real y límite de descompresión.
@@ -82,4 +85,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Suite completa final.
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
-Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 31 pruebas de `npm test` completados correctamente.
+Última validación: `npm run build`, `npm run lint` y las 34 pruebas de `npm test` completados correctamente. Pendiente de comprobación visual en Excel por el usuario.
