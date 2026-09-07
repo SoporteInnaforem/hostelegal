@@ -23,6 +23,9 @@ export function Documentation() {
   const [isLoading, setIsLoading] = useState(true);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [countError, setCountError] = useState(false);
+  const [countAttempt, setCountAttempt] = useState(0);
 
   const LIMITE_DOCS = 5;
 
@@ -53,11 +56,25 @@ export function Documentation() {
       const kind = parseTallyMessage(event.origin, event.source, iframeRef.current?.contentWindow, event.data);
       if (!kind) return;
       window.dispatchEvent(new Event("hostelegal:form-activity"));
-      if (kind === "submitted") setFormSubmitted(true);
+      if (kind === "submitted") {
+        setSubmissionId(JSON.parse(event.data).payload.id);
+        setFormSubmitted(true);
+      }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
+
+  useEffect(() => {
+    if (!submissionId) return;
+    let active = true;
+    void supabase.rpc('registrar_envio_tally', { p_event_id: submissionId }).then(({ data, error }) => {
+      if (!active) return;
+      if (error || !data?.accepted) setCountError(true);
+      else setDocsGenerados(data.documentos_generados);
+    });
+    return () => { active = false; };
+  }, [submissionId, countAttempt]);
 
   // Pantalla de carga inicial
   if (isLoading) {
@@ -95,6 +112,10 @@ export function Documentation() {
           >
             Volver al Panel
           </Link>
+          {countError && <div role="alert" className="mt-4 text-sm">
+            <p>El formulario se ha enviado, pero no se pudo actualizar el consumo mensual.</p>
+            <button onClick={() => { setCountError(false); setCountAttempt(n => n + 1); }} className="mt-2 underline">Reintentar actualización</button>
+          </div>}
         </div>
       </div>
     );

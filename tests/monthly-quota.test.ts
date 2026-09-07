@@ -35,5 +35,13 @@ test('cuota mensual preserva consumo, limita cinco, renueva y no cobra reintento
   assert.equal((await reserve('next-month')).documentos_generados,1);
   for (let i=2;i<=5;i++) assert.equal((await reserve(`next-${i}`)).documentos_generados,i);
   assert.equal((await reserve('next-6')).reason,'quota_exceeded');
+  await db.exec(`RESET ROLE; UPDATE empresas SET documentos_mes=(date_trunc('month',now() AT TIME ZONE 'Europe/Madrid')-interval '1 month')::date; SET ROLE authenticated`);
+  const report = async (id:string) => (await db.query<{q:{accepted:boolean;duplicate?:boolean;documentos_generados?:number;reason?:string}}>('SELECT registrar_envio_tally($1) q',[id])).rows[0].q;
+  assert.equal((await report('tally-1')).documentos_generados,1);
+  assert.equal((await report('tally-1')).duplicate,true);
+  for (let i=2;i<=5;i++) assert.equal((await report(`tally-${i}`)).documentos_generados,i);
+  assert.equal((await report('tally-6')).reason,'quota_exceeded');
+  await db.exec('SET ROLE anon');
+  await assert.rejects(report('anon'),/permission denied/);
  } finally { await db.close(); }
 });

@@ -13,6 +13,8 @@ Las cartas existentes siguen publicadas. Los nuevos registros comienzan privados
 
 ## Make / generación documental
 
+Alcance vigente acordado: límite desde la aplicación, sin integración Make. El evento validado de Tally llama a registrar_envio_tally; esta RPC deriva la empresa de la sesión e incrementa una sola vez por envío. consultar_cuota_documental bloquea el formulario con cinco envíos del mes. No garantiza el bloqueo de enlaces directos, pestañas abiertas simultáneamente ni que se haya generado un PDF. Las instrucciones de Make siguientes quedan como propuesta futura.
+
 Antes de desplegar el frontend con cuota mensual, aplicar `202609070003_monthly_document_quota.sql` y volver a desplegar `admin-users`. Seguir `supabase/MAKE_QUOTA.md` para integrar el escenario: mes natural en Europe/Madrid, reinicio automático efectivo y conservación del contador antiguo en el mes de transición. Esta migración y la conexión de Make están pendientes.
 
 Configurar el escenario de confianza para llamar mediante credencial service_role a `registrar_envio_documental(p_empresa_id uuid,p_event_id text)` **antes de generar el PDF**. Resolver y validar la empresa en el servidor; no confiar en campos ocultos del navegador. `p_event_id` debe ser el identificador estable del envío original de Tally, conservado durante reintentos.

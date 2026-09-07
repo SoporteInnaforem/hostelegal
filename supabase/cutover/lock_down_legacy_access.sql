@@ -2,6 +2,15 @@
 -- The Preview and old production frontends can coexist until this transaction.
 BEGIN;
 
+-- Replace every legacy policy on these two owned tables, including dashboard
+-- policies whose names differ from the repository's original schema.
+DO $$ DECLARE policy record; BEGIN
+ FOR policy IN SELECT tablename,policyname FROM pg_policies
+ WHERE schemaname='public' AND tablename IN ('empresas','cartas') LOOP
+  EXECUTE format('DROP POLICY %I ON public.%I',policy.policyname,policy.tablename);
+ END LOOP;
+END $$;
+
 ALTER TABLE public.empresas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cartas ENABLE ROW LEVEL SECURITY;
 

@@ -1,7 +1,7 @@
 export const TALLY_ORIGIN = "https://tally.so";
 export const TALLY_FORM_ID = "441ZRY";
 
-/** Validate only metadata needed by the UI; never retain answers or mutate quotas. */
+/** Validate event metadata; never retain form answers. */
 export function parseTallyMessage(
   origin: string, source: unknown, expectedSource: unknown, data: unknown,
 ): "page" | "submitted" | null {
@@ -12,7 +12,7 @@ export function parseTallyMessage(
     if (message.event === "Tally.FormPageView" &&
         Number.isInteger(message.payload.page) && message.payload.page > 0) return "page";
     if (message.event === "Tally.FormSubmitted" &&
-        typeof message.payload.id === "string" && message.payload.id.trim()) return "submitted";
+        typeof message.payload.id === "string" && message.payload.id.trim() && message.payload.id.length <= 200) return "submitted";
   } catch { /* Not a supported Tally payload. */ }
   return null;
 }

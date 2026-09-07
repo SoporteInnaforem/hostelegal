@@ -58,4 +58,13 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.registrar_envio_documental(uuid,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.registrar_envio_documental(uuid,text) TO service_role;
+-- App-only reporting of a Tally submission. This is not proof of PDF generation.
+CREATE OR REPLACE FUNCTION public.registrar_envio_tally(p_event_id text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'No autorizado.' USING ERRCODE = '42501'; END IF;
+ RETURN public.registrar_envio_documental(auth.uid(), p_event_id);
+END $$;
+REVOKE ALL ON FUNCTION public.registrar_envio_tally(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.registrar_envio_tally(text) TO authenticated;
 COMMIT;

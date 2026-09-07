@@ -73,6 +73,9 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ## Registro de validación
 
+- Alcance confirmado: cuota desde la aplicación sin modificar Make. RPC autenticada registrar_envio_tally con deduplicación, mes Europe/Madrid y formulario bloqueado al agotar cupo. Prueba del sexto envío y reinicio mensual superada.
+- Cierre de permisos actualizado para sustituir las políticas reales del panel. Pendiente confirmar uso de los dominios antiguos portal-hostelegal y cartas-portal-hostelegal antes de ejecutarlo.
+
 - Corrección de cuota: cinco solicitudes de PDF por mes natural en Europe/Madrid. Migración 202609070003 preparada; conserva el contador legado durante el mes de transición. Lecturas del restaurante y administrador calculan consumo vigente en servidor.
 - Pendiente antes de main: conectar la reserva y el filtro previo a generación en Make siguiendo supabase/MAKE_QUOTA.md. Hasta ahora sólo el navegador actualizaba el contador; Make no aplica el límite por sí mismo.
 
