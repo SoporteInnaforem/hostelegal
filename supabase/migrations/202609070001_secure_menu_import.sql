@@ -1,4 +1,4 @@
--- Apply before deploying the matching frontend and admin-users function.
+-- Compatibility phase: apply before testing the matching frontend in Preview.
 -- Stops on duplicate owners: resolve them explicitly; this migration never deletes data.
 BEGIN;
 DO $$ BEGIN
@@ -62,18 +62,9 @@ DROP TRIGGER IF EXISTS sincronizar_email_empresa ON auth.users;
 CREATE TRIGGER sincronizar_email_empresa AFTER UPDATE OF email ON auth.users
  FOR EACH ROW EXECUTE FUNCTION public.sync_empresa_email();
 
--- RLS controls rows; column privileges separately protect roles, subscriptions and quotas.
-REVOKE INSERT, UPDATE, DELETE ON public.empresas FROM PUBLIC, anon, authenticated;
-GRANT UPDATE(nombre_restaurante) ON public.empresas TO authenticated;
-GRANT SELECT ON public.empresas TO authenticated;
-REVOKE ALL ON public.cartas FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.cartas TO authenticated;
-DROP POLICY IF EXISTS cartas_select ON public.cartas;
-CREATE POLICY cartas_select ON public.cartas FOR SELECT TO authenticated
- USING (empresa_id = auth.uid() OR public.is_admin());
-DROP POLICY IF EXISTS cartas_insert ON public.cartas;
-DROP POLICY IF EXISTS cartas_update ON public.cartas;
-DROP POLICY IF EXISTS cartas_delete ON public.cartas;
+-- Legacy table permissions remain temporarily so the production frontend keeps
+-- working while this version is exercised in Vercel Preview. Apply the cutover
+-- script together with the production frontend to remove direct client access.
 
 CREATE OR REPLACE FUNCTION public.validar_datos_carta(p_platos jsonb, p_nombre text, p_publicar boolean)
 RETURNS void LANGUAGE plpgsql SET search_path = '' AS $$

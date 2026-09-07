@@ -122,3 +122,26 @@ test('migration preserves legacy menus and marks their implicit allergen choices
  } finally { await db.close(); }
 });
 
+test('compatibility migration keeps the legacy frontend working until cutover', async () => {
+ const db = await database(true);
+ try {
+  await fixtures(db);
+  await db.exec('GRANT ALL ON empresas,cartas TO anon,authenticated');
+  const migration = await readFile(new URL('../supabase/migrations/202609070001_secure_menu_import.sql',import.meta.url),'utf8');
+  await db.exec(migration);
+  await asOwner(db);
+  await db.query(`INSERT INTO cartas(empresa_id,nombre_carta,platos) VALUES($1,'Legacy','[]')`,[owner]);
+  await db.exec(`UPDATE empresas SET nombre_restaurante='Legacy editor' WHERE id=auth.uid()`);
+  await db.exec('SET ROLE anon');
+  assert.equal((await db.query('SELECT id FROM cartas')).rows.length,1);
+
+  await db.exec('RESET ROLE');
+  const cutover = await readFile(new URL('../supabase/cutover/lock_down_legacy_access.sql',import.meta.url),'utf8');
+  await db.exec(cutover);
+  await db.exec('SET ROLE anon');
+  await assert.rejects(db.query('SELECT id FROM cartas'),/permission denied/);
+  await asOwner(db);
+  await assert.rejects(db.exec(`UPDATE cartas SET nombre_carta='Direct write' WHERE empresa_id=auth.uid()`),/permission denied/);
+ } finally { await db.close(); }
+});
+

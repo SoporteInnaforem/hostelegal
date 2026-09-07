@@ -1,9 +1,11 @@
 # Despliegue de importación y seguridad
 
-1. Respaldar y aplicar `202609070001_secure_menu_import.sql`, después `202609070002_document_quota.sql`, sobre el esquema base existente.
+1. Respaldar y aplicar `202609070001_secure_menu_import.sql`, después `202609070002_document_quota.sql`, sobre el esquema base existente. Esta fase conserva temporalmente los permisos antiguos para que Preview y Producción puedan coexistir.
 2. Si hay varias cartas por empresa, la primera migración se detiene sin borrar datos. Resolver explícitamente conservando cartas y enlaces antes de reintentar.
-3. Desplegar `admin-users` y el frontend juntos. El frontend antiguo no puede guardar tras la revocación de escritura directa.
-4. Ejecutar `supabase/tests/security_smoke.sql` en Supabase local. Estos scripts no se han ejecutado contra producción.
+3. Desplegar `admin-users` para probar la administración desde Preview.
+4. Validar Preview con una cuenta de restaurante, una administradora y una ventana anónima.
+5. Al promover el frontend a Producción, ejecutar en la misma ventana de despliegue `supabase/cutover/lock_down_legacy_access.sql`. El frontend antiguo deja de guardar y de leer cartas después de este cierre.
+6. Ejecutar `supabase/tests/security_smoke.sql` en Supabase local. Estos scripts no se han ejecutado contra producción.
 
 Las cartas existentes siguen publicadas. Los nuevos registros comienzan privados. `platos` y `nombre_carta` son la publicación; `borrador_platos` y `borrador_nombre_carta` son privados. El QR usa `obtener_carta_publica(p_id)` y nunca consulta directamente la tabla. La respuesta es una lista con `id`, `platos`, `nombre_carta`, `actualizado_en`.
 

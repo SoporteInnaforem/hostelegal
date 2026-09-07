@@ -17,10 +17,11 @@
 - Estado agregado: 13 cuentas Auth, 12 perfiles de empresa y 6 cartas.
 - No hay empresas con varias cartas, cartas huérfanas, perfiles huérfanos, menús incompatibles, cuotas nulas ni nombres que superen los nuevos límites.
 - Una cuenta Auth confirmada y utilizada no tiene perfil en `empresas`; requiere revisión individual antes o después del despliegue.
-- La API anónima permite actualmente enumerar las 12 empresas y expone correo, caducidad de suscripción, contador documental y rol. La primera migración elimina este acceso directo.
+- La API anónima permite actualmente enumerar las 12 empresas y expone correo, caducidad de suscripción, contador documental y rol. El cierre de permisos de la promoción a Producción elimina este acceso directo.
 - Los correos de los 12 perfiles ya coinciden con Auth, por lo que su sincronización no cambiaría valores.
 - Las 6 cartas actuales se conservarán publicadas. Sus 208 ingredientes antiguos sin alérgenos ni marca explícita conservarán el significado del editor anterior (`Ninguno`) en el borrador inicial; una celda vacía de una importación nueva seguirá pendiente de revisión.
 - La API de backups no lista copias recuperables y PITR no está activo. No aplicar cambios remotos sin decidir antes una estrategia de respaldo.
+- La implantación se divide en una fase compatible y un cierre de permisos: las migraciones permiten probar Vercel Preview sin romper Producción; el script de `cutover` se reserva para la promoción definitiva.
 
 ## Objetivo
 
@@ -42,11 +43,12 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ## Secuencia de implantación
 
-1. Aplicar la migración de Supabase y resolver cualquier duplicado de cartas que el preflight detecte.
-2. Desplegar la Edge Function `admin-users`.
+1. Aplicar las migraciones compatibles de Supabase y resolver cualquier duplicado de cartas que el preflight detecte.
+2. Desplegar la Edge Function `admin-users` y validar la Preview sin interrumpir el frontend antiguo de Producción.
 3. Configurar Make/Tally para registrar envíos documentales de forma idempotente.
-4. Desplegar el frontend con `VITE_PUBLIC_MENU_URL` apuntando al dominio público de cartas.
-5. Ejecutar una prueba de aceptación con una cuenta cliente, una cuenta administradora y una ventana anónima.
+4. Promover el frontend con `VITE_PUBLIC_MENU_URL` apuntando al dominio público de cartas.
+5. Ejecutar `supabase/cutover/lock_down_legacy_access.sql` junto con la promoción para cerrar el acceso directo antiguo.
+6. Ejecutar una prueba final con una cuenta cliente, una cuenta administradora y una ventana anónima.
 
 ## Pruebas de aceptación
 
@@ -77,4 +79,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Suite completa final.
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
-Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 30 pruebas de `npm test` completados correctamente.
+Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 31 pruebas de `npm test` completados correctamente.
