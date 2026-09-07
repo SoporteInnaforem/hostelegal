@@ -10,6 +10,18 @@
 - Se añadió diagnóstico seguro para distinguir migración pendiente, cartas duplicadas, datos antiguos inválidos y fallos transitorios.
 - Pendiente de operación: aplicar las migraciones en Supabase siguiendo `supabase/DEPLOYMENT.md` y repetir la prueba con el restaurante afectado.
 
+## Auditoría remota de Supabase (`alergomenu`)
+
+- Proyecto activo y saludable; vínculo local verificado.
+- Las migraciones `202609070001` y `202609070002` no están aplicadas. El ensayo `db push --dry-run` sólo propone esos dos archivos.
+- Estado agregado: 13 cuentas Auth, 12 perfiles de empresa y 6 cartas.
+- No hay empresas con varias cartas, cartas huérfanas, perfiles huérfanos, menús incompatibles, cuotas nulas ni nombres que superen los nuevos límites.
+- Una cuenta Auth confirmada y utilizada no tiene perfil en `empresas`; requiere revisión individual antes o después del despliegue.
+- La API anónima permite actualmente enumerar las 12 empresas y expone correo, caducidad de suscripción, contador documental y rol. La primera migración elimina este acceso directo.
+- Los correos de los 12 perfiles ya coinciden con Auth, por lo que su sincronización no cambiaría valores.
+- Las 6 cartas actuales se conservarían publicadas. Hay 208 ingredientes antiguos sin alérgenos ni marca explícita de revisión; seguirán visibles en la carta publicada, pero deberán revisarse antes de una nueva publicación.
+- La API de backups no lista copias recuperables y PITR no está activo. No aplicar cambios remotos sin decidir antes una estrategia de respaldo.
+
 ## Objetivo
 
 Incorporar la importación de cartas mediante Excel y resolver previamente los riesgos de permisos, aislamiento entre cuentas, revisión de alérgenos y persistencia detectados en la revisión del repositorio.
