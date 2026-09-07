@@ -2,6 +2,14 @@
 
 Última actualización: 7 de septiembre de 2026.
 
+## Incidencia de despliegue detectada
+
+- Al abrir la Carta Digital en el entorno desplegado aparece el error genérico de carga.
+- El repositorio local no está vinculado a Supabase, por lo que no permite contrastar las migraciones remotas desde este equipo.
+- La causa más probable es que el frontend nuevo se desplegó antes de `202609070001_secure_menu_import.sql`: la consulta requiere las columnas de borrador creadas por esa migración.
+- Se añadió diagnóstico seguro para distinguir migración pendiente, cartas duplicadas, datos antiguos inválidos y fallos transitorios.
+- Pendiente de operación: aplicar las migraciones en Supabase siguiendo `supabase/DEPLOYMENT.md` y repetir la prueba con el restaurante afectado.
+
 ## Objetivo
 
 Incorporar la importación de cartas mediante Excel y resolver previamente los riesgos de permisos, aislamiento entre cuentas, revisión de alérgenos y persistencia detectados en la revisión del repositorio.
@@ -57,4 +65,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Suite completa final.
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
-Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 26 pruebas de `npm test` completados correctamente.
+Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 29 pruebas de `npm test` completados correctamente.

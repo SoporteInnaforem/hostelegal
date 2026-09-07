@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useMenuStore } from './store/useMenuStore';
 import { parseStoredMenu } from './utils/menuValidation';
+import { menuLoadErrorMessage, menuSaveErrorMessage } from './utils/persistenceErrors';
 
 // Serialize writes, including writes from a previous mount, so an older save
 // cannot finish after a newer save and overwrite it.
@@ -35,8 +36,8 @@ export function useMenuPersistence() {
           useMenuStore.getState().hydrate(ownerId, menu, name);
           setError(null);
         }
-      } catch {
-        if (active) setError('No se pudo cargar la carta. Reintenta antes de editar para evitar sobrescribir tus datos.');
+      } catch (loadError) {
+        if (active) setError(menuLoadErrorMessage(loadError));
       }
     }
     void load();
@@ -60,8 +61,8 @@ export function useMenuPersistence() {
     try {
       await operation;
       if (useMenuStore.getState().ownerId === expectedOwner) setError(null);
-    } catch {
-      if (useMenuStore.getState().ownerId === expectedOwner) setError('No se ha guardado el borrador. Comprueba la conexión y pulsa Reintentar.');
+    } catch (saveError) {
+      if (useMenuStore.getState().ownerId === expectedOwner) setError(menuSaveErrorMessage(saveError));
     } finally {
       setSaving(false);
     }
