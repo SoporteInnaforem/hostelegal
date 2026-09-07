@@ -98,3 +98,27 @@ test('migration refuses duplicate owners without deleting any legacy data', asyn
  } finally { await db.close(); }
 });
 
+test('migration preserves legacy menus and marks their implicit allergen choices as reviewed', async () => {
+ const db = await database(true);
+ try {
+  await fixtures(db);
+  const legacyMenu = [{ id: 'dish', name: 'Plato', ingredients: [
+   { id: 1, name: 'Arroz', allergens: [] },
+   { id: 2, name: 'Pan', allergens: ['GLUTEN'] },
+   { id: 3, name: 'Por revisar', allergens: [], allergensReviewed: false },
+  ] }];
+  await db.query('INSERT INTO cartas(empresa_id,nombre_carta,platos) VALUES($1,$2,$3)', [owner,'Carta anterior',JSON.stringify(legacyMenu)]);
+  const migration = await readFile(new URL('../supabase/migrations/202609070001_secure_menu_import.sql',import.meta.url),'utf8');
+  await db.exec(migration);
+  const result = await db.query<{nombre_carta:string;borrador_nombre_carta:string;platos:typeof legacyMenu;borrador_platos:typeof legacyMenu;publicado:boolean}>('SELECT nombre_carta,borrador_nombre_carta,platos,borrador_platos,publicado FROM cartas WHERE empresa_id=$1',[owner]);
+  const carta = result.rows[0];
+  assert.equal(carta.nombre_carta,'Carta anterior');
+  assert.equal(carta.borrador_nombre_carta,'Carta anterior');
+  assert.deepEqual(carta.platos,legacyMenu);
+  assert.equal(carta.borrador_platos[0].ingredients[0].allergensReviewed,true);
+  assert.equal(carta.borrador_platos[0].ingredients[1].allergensReviewed,true);
+  assert.equal(carta.borrador_platos[0].ingredients[2].allergensReviewed,false);
+  assert.equal(carta.publicado,true);
+ } finally { await db.close(); }
+});
+

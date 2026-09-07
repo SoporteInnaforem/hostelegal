@@ -10,6 +10,29 @@ ALTER TABLE public.empresas ADD COLUMN IF NOT EXISTS email text;
 UPDATE public.empresas e SET email = u.email FROM auth.users u WHERE u.id = e.id;
 ALTER TABLE public.cartas ADD COLUMN IF NOT EXISTS borrador_platos jsonb;
 ALTER TABLE public.cartas ADD COLUMN IF NOT EXISTS borrador_nombre_carta text;
+-- In the legacy editor an empty allergens array meant "none" and there was no
+-- review flag. Seed only missing drafts with that established meaning. New
+-- imports write allergensReviewed=false explicitly when the Excel cell is blank.
+UPDATE public.cartas AS carta
+SET borrador_platos = (
+ SELECT coalesce(jsonb_agg(
+  jsonb_set(
+   plato.value,
+   '{ingredients}',
+   coalesce((
+    SELECT jsonb_agg(
+     CASE WHEN ingrediente.value ? 'allergensReviewed' THEN ingrediente.value
+      ELSE ingrediente.value || '{"allergensReviewed":true}'::jsonb END
+     ORDER BY ingrediente.ordinality
+    )
+    FROM jsonb_array_elements(plato.value->'ingredients') WITH ORDINALITY AS ingrediente(value, ordinality)
+   ), '[]'::jsonb)
+  ) ORDER BY plato.ordinality
+ ), '[]'::jsonb)
+ FROM jsonb_array_elements(carta.platos) WITH ORDINALITY AS plato(value, ordinality)
+)
+WHERE carta.borrador_platos IS NULL AND jsonb_typeof(carta.platos) = 'array';
+UPDATE public.cartas SET borrador_nombre_carta = nombre_carta WHERE borrador_nombre_carta IS NULL;
 -- NULL identifies legacy rows only; subsequent executions preserve unpublished drafts.
 ALTER TABLE public.cartas ADD COLUMN IF NOT EXISTS publicado boolean;
 UPDATE public.cartas SET publicado = true WHERE publicado IS NULL;

@@ -19,7 +19,7 @@
 - Una cuenta Auth confirmada y utilizada no tiene perfil en `empresas`; requiere revisión individual antes o después del despliegue.
 - La API anónima permite actualmente enumerar las 12 empresas y expone correo, caducidad de suscripción, contador documental y rol. La primera migración elimina este acceso directo.
 - Los correos de los 12 perfiles ya coinciden con Auth, por lo que su sincronización no cambiaría valores.
-- Las 6 cartas actuales se conservarían publicadas. Hay 208 ingredientes antiguos sin alérgenos ni marca explícita de revisión; seguirán visibles en la carta publicada, pero deberán revisarse antes de una nueva publicación.
+- Las 6 cartas actuales se conservarán publicadas. Sus 208 ingredientes antiguos sin alérgenos ni marca explícita conservarán el significado del editor anterior (`Ninguno`) en el borrador inicial; una celda vacía de una importación nueva seguirá pendiente de revisión.
 - La API de backups no lista copias recuperables y PITR no está activo. No aplicar cambios remotos sin decidir antes una estrategia de respaldo.
 
 ## Objetivo
@@ -77,4 +77,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Suite completa final.
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
-Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 29 pruebas de `npm test` completados correctamente.
+Resultado final: `npm ci`, `npm run build`, `npm run lint` y las 30 pruebas de `npm test` completados correctamente.

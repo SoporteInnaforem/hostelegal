@@ -7,7 +7,7 @@
 
 Las cartas existentes siguen publicadas. Los nuevos registros comienzan privados. `platos` y `nombre_carta` son la publicación; `borrador_platos` y `borrador_nombre_carta` son privados. El QR usa `obtener_carta_publica(p_id)` y nunca consulta directamente la tabla. La respuesta es una lista con `id`, `platos`, `nombre_carta`, `actualizado_en`.
 
-`guardar_borrador_carta(p_platos,p_nombre,p_empresa_id)` y `publicar_carta(p_platos,p_nombre,p_empresa_id)` devuelven UUID. Exigen identidad coincidente y suscripción vigente; las fechas NULL antiguas mantienen acceso por compatibilidad. Publicar exige nombre, platos e ingredientes y revisión de alérgenos. Los ingredientes antiguos sin bandera se aceptan solo si tienen alérgenos; vacío requiere `allergensReviewed: true` explícito.
+`guardar_borrador_carta(p_platos,p_nombre,p_empresa_id)` y `publicar_carta(p_platos,p_nombre,p_empresa_id)` devuelven UUID. Exigen identidad coincidente y suscripción vigente; las fechas NULL antiguas mantienen acceso por compatibilidad. Publicar exige nombre, platos e ingredientes y revisión de alérgenos. Al crear el primer borrador de una carta antigua, la migración conserva la semántica del editor anterior y marca como revisados sus ingredientes sin bandera; las importaciones nuevas distinguen una celda vacía pendiente (`false`) de `Ninguno` revisado (`true`).
 
 ## Make / generación documental
 
