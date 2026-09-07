@@ -73,6 +73,9 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ## Registro de validación
 
+- Corrección de cuota: cinco solicitudes de PDF por mes natural en Europe/Madrid. Migración 202609070003 preparada; conserva el contador legado durante el mes de transición. Lecturas del restaurante y administrador calculan consumo vigente en servidor.
+- Pendiente antes de main: conectar la reserva y el filtro previo a generación en Make siguiendo supabase/MAKE_QUOTA.md. Hasta ahora sólo el navegador actualizaba el contador; Make no aplica el límite por sí mismo.
+
 - Plantilla Excel por columnas: los 14 alérgenos proceden del catálogo de la aplicación, con marcas ✓/☐ y opción Ninguno. Cabeceras y nombres de plato/ingrediente permanecen visibles al desplazarse.
 - Importador compatible con las marcas y las plantillas antiguas. Verificado el recorrido de generación, guardado y lectura de un archivo real, incluyendo los 14 alérgenos, contradicciones y fórmulas rechazadas.
 
@@ -85,4 +88,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Suite completa final.
 - [x] Prueba visual del modal de importación en escritorio y móvil, incluyendo vista previa real.
 
-Última validación: `npm run build`, `npm run lint` y las 34 pruebas de `npm test` completados correctamente. Pendiente de comprobación visual en Excel por el usuario.
+Última validación: `npm run build`, `npm run lint` y las 35 pruebas de `npm test` completados correctamente. Cuota mensual preparada localmente, pendiente de despliegue e integración con Make.

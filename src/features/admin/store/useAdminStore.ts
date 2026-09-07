@@ -32,7 +32,7 @@ export const useAdminStore = create<AdminState & AdminActions>()(devtools((set, 
   clientes: [], isLoading: false, error: null,
   fetchClientes: async () => {
     set({ isLoading: true, error: null }, false, 'admin/load');
-    const { data, error } = await supabase.from('empresas').select('*').eq('es_admin', false).order('fecha_caducidad_suscripcion', { ascending: false });
+    const { data, error } = await supabase.rpc('listar_clientes_cuota_mensual');
     set({ clientes: error ? [] : (data ?? []) as Cliente[], isLoading: false, error: error?.message ?? null }, false, 'admin/loaded');
   },
   crearCliente: async (nombre, email, password, fecha) => {

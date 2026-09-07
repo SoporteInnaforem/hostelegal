@@ -32,8 +32,7 @@ export function Documentation() {
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) throw new Error("No se ha podido validar tu sesión.");
-        const { data, error } = await supabase.from("empresas")
-          .select("documentos_generados").eq("id", user.id).single();
+        const { data, error } = await supabase.rpc("consultar_cuota_documental");
         if (error || !data) throw new Error("No se ha podido consultar tu disponibilidad de documentos.");
         if (active) {
           setUserId(user.id);
@@ -112,7 +111,7 @@ export function Documentation() {
           </h2>
           <p className="text-surface-600 mb-6">
             Has generado {docsGenerados} de los {LIMITE_DOCS} documentos
-            permitidos.
+            permitidos este mes. El cupo se renueva el día 1 (hora de Madrid).
           </p>
           <Link
             to="/dashboard"
@@ -155,7 +154,7 @@ export function Documentation() {
         {/* CONTADOR E INFO A LA DERECHA */}
         <div className="flex items-center gap-3">
           <span className="text-xs font-bold bg-surface-100 text-surface-600 px-2.5 py-1.5 rounded-lg border border-surface-200 shadow-sm whitespace-nowrap">
-            {LIMITE_DOCS - docsGenerados} / {LIMITE_DOCS} <span className="hidden sm:inline">docs</span>
+            {Math.max(0, LIMITE_DOCS - docsGenerados)} / {LIMITE_DOCS} <span className="hidden sm:inline">docs este mes</span>
           </span>
           <button
             onClick={() => setShowInfoModal(true)}

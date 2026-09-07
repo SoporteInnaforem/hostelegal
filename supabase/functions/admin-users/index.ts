@@ -48,7 +48,9 @@ serve(async (req) => {
     if (typeof fecha !== 'string' || !Number.isFinite(Date.parse(fecha))) throw new Error('Fecha de caducidad no válida');
     if (!Number.isInteger(documentos) || documentos < 0) throw new Error('Contador no válido');
     if ((action === 'create_user' || password !== undefined) && (typeof password !== 'string' || password.length < 8)) throw new Error('La contraseña debe tener al menos 8 caracteres');
-    const profile = { nombre_restaurante: nombre.trim(), fecha_caducidad_suscripcion: new Date(fecha).toISOString(), documentos_generados: documentos };
+    const monthParts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit' }).formatToParts(new Date());
+    const documentosMes = `${monthParts.find(p => p.type === 'year')!.value}-${monthParts.find(p => p.type === 'month')!.value}-01`;
+    const profile = { nombre_restaurante: nombre.trim(), fecha_caducidad_suscripcion: new Date(fecha).toISOString(), documentos_generados: documentos, documentos_mes: documentosMes };
     if (action === 'create_user') {
       const { data, error } = await admin.auth.admin.createUser({ email: email.trim(), password, email_confirm: true, user_metadata: { nombre_restaurante: nombre.trim() } });
       if (error) throw error;

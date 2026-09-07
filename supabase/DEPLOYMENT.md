@@ -13,6 +13,8 @@ Las cartas existentes siguen publicadas. Los nuevos registros comienzan privados
 
 ## Make / generación documental
 
+Antes de desplegar el frontend con cuota mensual, aplicar `202609070003_monthly_document_quota.sql` y volver a desplegar `admin-users`. Seguir `supabase/MAKE_QUOTA.md` para integrar el escenario: mes natural en Europe/Madrid, reinicio automático efectivo y conservación del contador antiguo en el mes de transición. Esta migración y la conexión de Make están pendientes.
+
 Configurar el escenario de confianza para llamar mediante credencial service_role a `registrar_envio_documental(p_empresa_id uuid,p_event_id text)` **antes de generar el PDF**. Resolver y validar la empresa en el servidor; no confiar en campos ocultos del navegador. `p_event_id` debe ser el identificador estable del envío original de Tally, conservado durante reintentos.
 
 Respuesta JSON: `accepted: false` y `reason` (`unknown_company`, `event_conflict`, `expired_subscription`, `quota_exceeded`) indica detener procesamiento. `accepted: true, duplicate: false` reserva una unidad atómicamente. `accepted: true, duplicate: true` no consume otra unidad: usar el estado persistente del escenario para evitar generar/enviar dos veces o recuperar un intento interrumpido. La reserva mide solicitudes aceptadas, no prueba la generación final del PDF. Las reservas fallidas no se reembolsan automáticamente; el administrador puede ajustar el contador tras revisar el incidente.
