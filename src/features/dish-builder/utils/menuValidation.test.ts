@@ -35,9 +35,14 @@ test('dish-level allergens replace ingredient review only when explicitly confir
 });
 
 test('rejects malformed menus, dish metadata and oversized collections', () => {
-  for (const invalid of [null, {}, '[]', [null], [{ ...dish(), name: '' }], [{ ...dish(), name: 'a'.repeat(121) }], [{ ...dish(), ingredients: [] }], [{ ...dish(), ingredients: Array.from({ length: 101 }, () => ingredient()) }], Array.from({ length: 301 }, dish)]) {
+  for (const invalid of [null, {}, '[]', [null], [{ ...dish(), name: '' }], [{ ...dish(), name: 'a'.repeat(121) }], [{ ...dish(), section: '' }], [{ ...dish(), section: 'a'.repeat(61) }], [{ ...dish(), ingredients: [] }], [{ ...dish(), ingredients: Array.from({ length: 101 }, () => ingredient()) }], Array.from({ length: 301 }, dish), Array.from({ length: 31 }, (_, index) => ({ ...dish(), id: `dish-${index}`, section: `Sección ${index}` }))]) {
     assert.throws(() => parseStoredMenu(invalid));
   }
+});
+
+test('accepts normalized sections without counting accent variants twice', () => {
+  const parsed = parseStoredMenu([{ ...dish(), section: 'Postres' }, { ...dish(), id: 'dish-2', section: 'PÓSTRES' }]);
+  assert.equal(parsed.length, 2);
 });
 
 test('rejects invalid ingredient fields and unknown or prototype-key allergens', () => {

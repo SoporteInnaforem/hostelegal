@@ -328,11 +328,13 @@ BEGIN
  IF p_platos IS NULL OR jsonb_typeof(p_platos) <> 'array' THEN RAISE EXCEPTION 'La carta debe ser una lista.'; END IF;
  IF jsonb_array_length(p_platos) > 300 OR octet_length(p_platos::text) > 5000000 THEN RAISE EXCEPTION 'La carta supera el límite permitido.'; END IF;
  IF p_publicar AND jsonb_array_length(p_platos) = 0 THEN RAISE EXCEPTION 'Añade platos antes de publicar.'; END IF;
+ IF (SELECT count(DISTINCT translate(lower(btrim(value->>'section')), 'áéíóúüñ', 'aeiouun')) FROM jsonb_array_elements(p_platos) WHERE value ? 'section') > 30 THEN RAISE EXCEPTION 'La carta admite un máximo de 30 secciones.'; END IF;
  FOR plato IN SELECT value FROM jsonb_array_elements(p_platos) LOOP
   IF jsonb_typeof(plato) <> 'object' OR jsonb_typeof(plato->'id') IS DISTINCT FROM 'string'
    OR coalesce(plato->>'id', '') = '' OR jsonb_typeof(plato->'name') IS DISTINCT FROM 'string'
    OR btrim(coalesce(plato->>'name','')) = '' OR length(plato->>'name') > 120
-   OR jsonb_typeof(plato->'ingredients') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Plato no válido.'; END IF;
+   OR jsonb_typeof(plato->'ingredients') IS DISTINCT FROM 'array'
+   OR (plato ? 'section' AND (jsonb_typeof(plato->'section') <> 'string' OR btrim(plato->>'section') = '' OR length(plato->>'section') > 60)) THEN RAISE EXCEPTION 'Plato no válido.'; END IF;
   IF jsonb_array_length(plato->'ingredients') = 0 OR jsonb_array_length(plato->'ingredients') > 100 THEN RAISE EXCEPTION 'Cada plato necesita entre 1 y 100 ingredientes.'; END IF;
   IF (plato ? 'dishAllergens') <> (plato ? 'dishAllergensReviewed')
    OR (plato ? 'dishAllergens' AND jsonb_typeof(plato->'dishAllergens') <> 'array')

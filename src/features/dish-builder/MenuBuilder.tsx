@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   Info,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMenuStore } from "./store/useMenuStore";
@@ -27,6 +29,7 @@ import { ImportMenuModal } from "./components/ImportMenuModal";
 import { useMenuPersistence } from "./useMenuPersistence";
 import { pendingIngredients } from "./utils/menuValidation";
 import { downloadMenuExcel } from "./utils/menuImport";
+import { cleanSectionName, DEFAULT_SECTION_SUGGESTIONS, groupMenuBySection, MAX_MENU_SECTIONS, MAX_SECTION_NAME, sectionKey, sectionNames } from "./utils/menuSections";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -156,6 +159,7 @@ async function exportCartaPDF(
   iconMap: IconMap,
 ) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const orderedMenu = groupMenuBySection(menu).flatMap(group => group.dishes);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const M = 14;
@@ -194,7 +198,8 @@ async function exportCartaPDF(
   cursorY += 5;
 
   const summaryAllergens: AllergenId[][] = [];
-  const summaryRows = menu.map((dish) => {
+  const usesSections = orderedMenu.some(dish => cleanSectionName(dish.section));
+  const summaryRows = orderedMenu.map((dish) => {
     const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
     const unique = [
       ...new Set(
@@ -204,12 +209,12 @@ async function exportCartaPDF(
       ),
     ];
     summaryAllergens.push(unique);
-    return [dish.name, ""];
+    return usesSections ? [cleanSectionName(dish.section) ?? "Otros", dish.name, ""] : [dish.name, ""];
   });
 
   autoTable(doc, {
     startY: cursorY,
-    head: [["Nombre del Plato", "Alérgenos"]],
+    head: [usesSections ? ["Sección", "Nombre del Plato", "Alérgenos"] : ["Nombre del Plato", "Alérgenos"]],
     body: summaryRows,
     styles: {
       font: "helvetica",
@@ -227,13 +232,17 @@ async function exportCartaPDF(
       fontSize: 9,
     },
     alternateRowStyles: { fillColor: [250, 253, 253] },
-    columnStyles: {
+    columnStyles: usesSections ? {
+      0: { fontStyle: "bold", cellWidth: 45 },
+      1: { fontStyle: "bold", cellWidth: 65 },
+      2: { cellWidth: 72 },
+    } : {
       0: { fontStyle: "bold", cellWidth: 80 },
       1: { cellWidth: 102 },
     },
     margin: { left: M, right: M },
     didDrawCell: (data) => {
-      if (data.section !== "body" || data.column.index !== 1) return;
+      if (data.section !== "body" || data.column.index !== (usesSections ? 2 : 1)) return;
       drawIconsInCell(
         doc,
         data,
@@ -300,7 +309,21 @@ async function exportCartaPDF(
   doc.text("Desglose por Plato", M, cursorY);
   cursorY += 8;
 
-  for (const dish of menu) {
+  let previousSection: string | null = null;
+  for (const dish of orderedMenu) {
+    const currentSection = usesSections ? cleanSectionName(dish.section) ?? "Otros" : null;
+    if (currentSection !== previousSection) {
+      if (cursorY > pageH - 45) { doc.addPage(); cursorY = 20; }
+      if (currentSection) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(27, 97, 116);
+        doc.text(currentSection, M, cursorY);
+        cursorY += 8;
+      }
+      previousSection = currentSection;
+    }
+    if (cursorY > pageH - 35) { doc.addPage(); cursorY = 20; }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(40, 50, 55);
@@ -508,6 +531,44 @@ function MenuRow({ dish }: { dish: Dish }) {
   );
 }
 
+function SectionHeader({ name, count, index, total, names }: { name: string; count: number; index: number; total: number; names: string[] }) {
+  const renameSection = useMenuStore((s) => s.renameSection);
+  const removeSection = useMenuStore((s) => s.removeSection);
+  const moveSection = useMenuStore((s) => s.moveSection);
+  const [editing, setEditing] = useState(false);
+  const [nextName, setNextName] = useState(name);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const cleaned = cleanSectionName(nextName);
+  const duplicate = cleaned && sectionKey(cleaned) !== sectionKey(name) && names.some(existing => sectionKey(existing) === sectionKey(cleaned));
+  const error = !cleaned ? 'Escribe un nombre.' : cleaned.length > MAX_SECTION_NAME ? `Máximo ${MAX_SECTION_NAME} caracteres.` : duplicate ? 'Ya existe una sección con ese nombre.' : '';
+
+  function saveRename() {
+    if (!cleaned || error) return;
+    renameSection(name, cleaned);
+    setEditing(false);
+  }
+
+  function handleDelete() {
+    if (!confirmingDelete) { setConfirmingDelete(true); window.setTimeout(() => setConfirmingDelete(false), 2500); return; }
+    removeSection(name);
+  }
+
+  return <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-200 bg-brand-50 px-4 py-3">
+    {editing ? <div className="flex flex-1 flex-wrap items-center gap-2">
+      <input value={nextName} onChange={event => setNextName(event.target.value)} maxLength={MAX_SECTION_NAME + 1} aria-label={`Nuevo nombre para ${name}`} className="min-w-48 flex-1 rounded-lg border border-surface-300 bg-white px-3 py-2 text-sm" autoFocus />
+      <button type="button" onClick={saveRename} disabled={Boolean(error)} className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Guardar</button>
+      <button type="button" onClick={() => { setEditing(false); setNextName(name); }} className="px-2 py-2 text-xs text-surface-600">Cancelar</button>
+      {error && <span role="alert" className="w-full text-xs text-danger-600">{error}</span>}
+    </div> : <h3 className="font-bold text-brand-800">{name} <span className="ml-1 rounded-full bg-white px-2 py-0.5 text-xs text-brand-600">{count}</span></h3>}
+    {!editing && <div className="flex items-center gap-1">
+      <button type="button" onClick={() => moveSection(name, -1)} disabled={index === 0} aria-label={`Subir sección ${name}`} className="rounded-lg p-2 text-surface-600 hover:bg-white disabled:opacity-30"><ChevronUp size={16} /></button>
+      <button type="button" onClick={() => moveSection(name, 1)} disabled={index === total - 1} aria-label={`Bajar sección ${name}`} className="rounded-lg p-2 text-surface-600 hover:bg-white disabled:opacity-30"><ChevronDown size={16} /></button>
+      <button type="button" onClick={() => setEditing(true)} aria-label={`Renombrar sección ${name}`} className="rounded-lg p-2 text-surface-600 hover:bg-white"><PenLine size={15} /></button>
+      <button type="button" onClick={handleDelete} aria-label={confirmingDelete ? `Confirmar quitar sección ${name}` : `Quitar sección ${name}`} className={confirmingDelete ? 'rounded-lg bg-danger-50 px-2 py-2 text-xs font-semibold text-danger-600' : 'rounded-lg p-2 text-surface-600 hover:bg-danger-50 hover:text-danger-600'}>{confirmingDelete ? 'Confirmar' : <Trash2 size={15} />}</button>
+    </div>}
+  </div>;
+}
+
 // ─── MenuBuilder ──────────────────────────────────────────────────────────────
 
 /**
@@ -529,6 +590,7 @@ export function MenuBuilder() {
   const restaurantName = useMenuStore((s) => s.restaurantName);
   const setRestaurantName = useMenuStore((s) => s.setRestaurantName);
   const setDraftName = useMenuStore((s) => s.setDraftName);
+  const setDraftSection = useMenuStore((s) => s.setDraftSection);
   const saveDishToMenu = useMenuStore((s) => s.saveDishToMenu);
   const cancelEdit = useMenuStore((s) => s.cancelEdit);
   const appendDishes = useMenuStore((s) => s.appendDishes);
@@ -543,8 +605,13 @@ export function MenuBuilder() {
   const [showInfoModal, setShowInfoModal] = useState(false);
 
   const pending = pendingIngredients(menu);
+  const menuSectionNames = sectionNames(menu);
+  const sectionGroups = groupMenuBySection(menu);
+  const cleanedDraftSection = cleanSectionName(draftDish.section);
+  const draftCreatesSection = cleanedDraftSection && !menuSectionNames.some(name => sectionKey(name) === sectionKey(cleanedDraftSection));
+  const sectionError = draftDish.section && !cleanedDraftSection ? 'La sección no puede contener solo espacios.' : cleanedDraftSection && cleanedDraftSection.length > MAX_SECTION_NAME ? `Máximo ${MAX_SECTION_NAME} caracteres.` : draftCreatesSection && menuSectionNames.length >= MAX_MENU_SECTIONS ? `La carta admite un máximo de ${MAX_MENU_SECTIONS} secciones.` : '';
 
-  const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0;
+  const canSave = draftDish.name.trim().length > 0 && draftDish.ingredients.length > 0 && !sectionError;
   const canExport = menu.length > 0 && restaurantName.trim().length > 0 && pending === 0;
   const isEditing = Boolean(draftDish.id); // Si hay ID, estamos editando
 
@@ -710,8 +777,8 @@ export function MenuBuilder() {
               )}
             </h2>
           </div>
-          <div className="rounded-xl border border-surface-300 overflow-x-auto bg-white shadow-sm">
-            {menu.length === 0 ? (
+          {menu.length === 0 ? (
+            <div className="rounded-xl border border-surface-300 bg-white shadow-sm">
               <div className="flex flex-col items-center justify-center gap-3 py-14 text-surface-400">
                 <BookOpen size={28} className="opacity-40" />
                 <p className="text-sm font-medium text-surface-500">
@@ -721,37 +788,20 @@ export function MenuBuilder() {
                   Crea platos en el editor de abajo y añádelos.
                 </p>
               </div>
-            ) : (
-              <table
-                className="w-full text-sm border-collapse"
-                aria-label="Platos en la carta"
-              >
+            </div>
+          ) : <div className="space-y-4">
+            {sectionGroups.map((group, index) => <div key={group.key || 'unsectioned'} className="overflow-x-auto rounded-xl border border-surface-300 bg-white shadow-sm">
+              {group.name ? <SectionHeader name={group.name} count={group.dishes.length} index={index} total={sectionGroups.filter(item => item.name).length} names={menuSectionNames} /> : sectionGroups.length > 1 ? <div className="border-b border-surface-200 bg-surface-100 px-4 py-3"><h3 className="font-bold text-surface-700">Otros <span className="ml-1 rounded-full bg-white px-2 py-0.5 text-xs text-surface-500">{group.dishes.length}</span></h3></div> : null}
+              <table className="w-full text-sm border-collapse" aria-label={group.name ? `Platos de ${group.name}` : 'Platos en la carta'}>
                 <thead>
                   <tr className="bg-surface-100 border-b border-surface-200">
-                    {["Nombre del Plato", "Alérgenos", "Acción"].map(
-                      (col, i) => (
-                        <th
-                          key={col}
-                          scope="col"
-                          className={[
-                            "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-surface-500",
-                            i === 2 ? "text-right w-36" : "text-left",
-                          ].join(" ")}
-                        >
-                          {col}
-                        </th>
-                      ),
-                    )}
+                    {["Nombre del Plato", "Alérgenos", "Acción"].map((col, columnIndex) => <th key={col} scope="col" className={["px-4 py-3 text-xs font-semibold uppercase tracking-wider text-surface-500", columnIndex === 2 ? "text-right w-36" : "text-left"].join(" ")}>{col}</th>)}
                   </tr>
                 </thead>
-                <tbody>
-                  {menu.map((dish) => (
-                    <MenuRow key={dish.id} dish={dish} />
-                  ))}
-                </tbody>
+                <tbody>{group.dishes.map(dish => <MenuRow key={dish.id} dish={dish} />)}</tbody>
               </table>
-            )}
-          </div>
+            </div>)}
+          </div>}
         </section>
 
         {/* DIVIDER */}
@@ -791,6 +841,15 @@ export function MenuBuilder() {
                 Cancelar Edición
               </button>
             )}
+          </div>
+          <div>
+            <label htmlFor="draft-dish-section" className="block text-xs font-semibold uppercase tracking-wider text-surface-500 mb-2">Sección <span className="font-normal normal-case">(opcional)</span></label>
+            <input id="draft-dish-section" list="menu-section-options" type="text" value={draftDish.section ?? ''} onChange={event => setDraftSection(event.target.value)} placeholder="Ej: Tapas, Postres, Menú del día…" maxLength={MAX_SECTION_NAME + 1} className="w-full rounded-xl border border-surface-300 bg-white px-4 py-3 text-sm font-medium outline-none hover:border-surface-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" />
+            <datalist id="menu-section-options">{[...menuSectionNames, ...DEFAULT_SECTION_SUGGESTIONS.filter(suggestion => !menuSectionNames.some(name => sectionKey(name) === sectionKey(suggestion)))].map(name => <option key={name} value={name} />)}</datalist>
+            <div className="mt-1 flex items-start justify-between gap-3">
+              <p className={sectionError ? 'text-xs text-danger-600' : 'text-xs text-surface-400'}>{sectionError || 'Elige una existente o escribe una sección nueva.'}</p>
+              <span className="shrink-0 text-[11px] tabular-nums text-surface-400">{draftDish.section?.length ?? 0}/{MAX_SECTION_NAME}</span>
+            </div>
           </div>
           <div>
             <label

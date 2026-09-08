@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { AllergenId } from '../utils/allergens';
+import { normalizeText } from '../utils/normalizeText';
 
 // Re-export so components can import everything from one place
 export type { AllergenId };
@@ -36,6 +37,7 @@ export interface Dish {
   /** Alérgenos declarados para el plato completo en el formato Excel sencillo. */
   dishAllergens?: AllergenId[];
   dishAllergensReviewed?: boolean;
+  section?: string;
 }
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ interface MenuActions {
   reviewDishAllergens(allergens: AllergenId[], reviewed: boolean): void;
   setRestaurantName(name: string): void;
   setDraftName(name: string): void;
+  setDraftSection(section: string | undefined): void;
   addDraftIngredient(ingredient: Ingredient): void;
   removeDraftIngredient(id: number): void;
   /** Carga un plato existente en el editor */
@@ -82,6 +85,9 @@ interface MenuActions {
   /** Valida, asigna UUID si es nuevo, guarda/actualiza y resetea el draft. */
   saveDishToMenu(): void;
   removeDishFromMenu(dishId: string): void;
+  renameSection(previousName: string, nextName: string): void;
+  removeSection(name: string): void;
+  moveSection(name: string, direction: -1 | 1): void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -127,6 +133,9 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           'menu/setDraftName'
         ),
 
+      setDraftSection: (section) =>
+        set((s) => ({ draftDish: { ...s.draftDish, section } }), false, 'menu/setDraftSection'),
+
       addDraftIngredient: (ingredient) =>
         set(
           (s) => ({
@@ -171,14 +180,17 @@ export const useMenuStore = create<MenuState & MenuActions>()(
        *   preparar el editor para el siguiente plato.
        */
       saveDishToMenu: () => {
-        const { draftDish } = get();
+        const { draftDish, menu } = get();
         if (!draftDish.name.trim() || draftDish.ingredients.length === 0) return;
+        const cleanedSection = draftDish.section?.trim().replace(/\s+/g, ' ') || undefined;
+        const canonicalSection = cleanedSection ? menu.find(dish => dish.section && normalizeText(dish.section) === normalizeText(cleanedSection))?.section ?? cleanedSection : undefined;
+        const dishToSave = { ...draftDish, section: canonicalSection };
 
         // Si el draft ya tiene un ID, significa que estamos editando un plato existente
-        if (draftDish.id) {
+        if (dishToSave.id) {
           set(
             (s) => ({
-              menu: s.menu.map((d) => (d.id === draftDish.id ? { ...draftDish } : d)),
+              menu: s.menu.map((d) => (d.id === dishToSave.id ? dishToSave : d)),
               revision: s.revision + 1,
               draftDish: emptyDraft(),
             }),
@@ -187,7 +199,7 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           );
         } else {
           // Si no tiene ID, es un plato nuevo
-          const dish: Dish = { ...draftDish, id: crypto.randomUUID() };
+          const dish: Dish = { ...dishToSave, id: crypto.randomUUID() };
           set(
             (s) => ({ menu: [...s.menu, dish], draftDish: emptyDraft(), revision: s.revision + 1 }),
             false,
@@ -202,6 +214,24 @@ export const useMenuStore = create<MenuState & MenuActions>()(
           false,
           'menu/removeDishFromMenu'
         ),
+
+      renameSection: (previousName, nextName) => set((s) => {
+        const previous = normalizeText(previousName);
+        return { menu: s.menu.map(dish => dish.section && normalizeText(dish.section) === previous ? { ...dish, section: nextName } : dish), draftDish: s.draftDish.section && normalizeText(s.draftDish.section) === previous ? { ...s.draftDish, section: nextName } : s.draftDish, revision: s.revision + 1 };
+      }, false, 'menu/renameSection'),
+      removeSection: (name) => set((s) => {
+        const key = normalizeText(name);
+        const matches = (value: string | undefined) => value ? normalizeText(value) === key : false;
+        return { menu: s.menu.map(dish => matches(dish.section) ? { ...dish, section: undefined } : dish), draftDish: matches(s.draftDish.section) ? { ...s.draftDish, section: undefined } : s.draftDish, revision: s.revision + 1 };
+      }, false, 'menu/removeSection'),
+      moveSection: (name, direction) => set((s) => {
+        const groups = new Map<string, Dish[]>(); const order: string[] = []; const unsectioned: Dish[] = [];
+        for (const dish of s.menu) { if (!dish.section) { unsectioned.push(dish); continue; } const key = normalizeText(dish.section); if (!groups.has(key)) { groups.set(key, []); order.push(key); } groups.get(key)!.push(dish); }
+        const index = order.indexOf(normalizeText(name)); const target = index + direction;
+        if (index < 0 || target < 0 || target >= order.length) return s;
+        [order[index], order[target]] = [order[target], order[index]];
+        return { menu: [...order.flatMap(key => groups.get(key)!), ...unsectioned], revision: s.revision + 1 };
+      }, false, 'menu/moveSection'),
 
     }),
     { name: 'MenuStore' }

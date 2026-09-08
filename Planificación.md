@@ -128,42 +128,43 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 ### Fase 1 — Modelo y compatibilidad
 
-- [ ] Ampliar `Dish` con la sección opcional y crear utilidades puras para normalizar, agrupar y ordenar.
-- [ ] Incorporar acciones de estado para asignar un plato, renombrar una sección, eliminarla sin borrar platos y mover bloques.
-- [ ] Validar al cargar que `section`, si existe, sea texto no vacío de hasta 60 caracteres.
-- [ ] Añadir una migración compatible de `validar_datos_carta` que limite tipo, longitud y máximo de 30 secciones sin modificar filas existentes.
+- [x] Ampliar `Dish` con la sección opcional y crear utilidades puras para normalizar, agrupar y ordenar.
+- [x] Incorporar acciones de estado para asignar un plato, renombrar una sección, eliminarla sin borrar platos y mover bloques.
+- [x] Validar al cargar que `section`, si existe, sea texto no vacío de hasta 60 caracteres.
+- [x] Añadir una migración compatible de `validar_datos_carta` que limite tipo, longitud y máximo de 30 secciones sin modificar filas existentes.
 
 ### Fase 2 — Constructor de carta
 
-- [ ] Añadir al editor del plato un selector que permita elegir una sección existente o escribir una nueva.
-- [ ] Mostrar sugerencias iniciales sin restringir los nombres personalizados.
-- [ ] Agrupar la tabla de platos por secciones, mostrando el número de platos de cada bloque.
-- [ ] Permitir renombrar, mover arriba/abajo y eliminar una sección; al eliminarla, mover sus platos a `Sin sección`.
-- [ ] Permitir cambiar un plato de sección desde su edición.
-- [ ] Mantener las protecciones actuales contra pérdida de un borrador en curso.
+- [x] Añadir al editor del plato un selector que permita elegir una sección existente o escribir una nueva.
+- [x] Mostrar sugerencias iniciales sin restringir los nombres personalizados.
+- [x] Agrupar la tabla de platos por secciones, mostrando el número de platos de cada bloque.
+- [x] Permitir renombrar, mover arriba/abajo y eliminar una sección; al eliminarla, mover sus platos a `Sin sección`.
+- [x] Permitir cambiar un plato de sección desde su edición.
+- [x] Mantener las protecciones actuales contra pérdida de un borrador en curso.
 
 ### Fase 3 — Carta pública y PDF
 
-- [ ] Agrupar la carta pública por secciones con encabezados claros y accesibles.
-- [ ] Mantener la vista plana actual cuando no existan secciones.
-- [ ] Reflejar el mismo orden y las mismas cabeceras en el resumen y desglose del PDF.
-- [ ] Evitar cabeceras huérfanas al cambiar de página en el PDF.
+- [x] Agrupar la carta pública por secciones con encabezados claros y accesibles.
+- [x] Mantener la vista plana actual cuando no existan secciones.
+- [x] Reflejar el mismo orden y las mismas cabeceras en el resumen y desglose del PDF.
+- [x] Evitar cabeceras huérfanas al cambiar de página en el PDF.
 
 ### Fase 4 — Excel
 
-- [ ] Añadir `Sección` como primera columna opcional de la plantilla sencilla y del Excel detallado.
-- [ ] Exportar una fila por plato conservando su sección; dejar la celda vacía para platos sin clasificar.
-- [ ] Detectar automáticamente Excel nuevos y anteriores, manteniendo compatibilidad con todos los formatos actuales.
-- [ ] Agrupar nombres de sección equivalentes sin distinguir tildes o mayúsculas y rechazar más de 30 secciones.
+- [x] Añadir `Sección` como primera columna opcional de la plantilla sencilla y del Excel detallado.
+- [x] Exportar una fila por plato conservando su sección; dejar la celda vacía para platos sin clasificar.
+- [x] Detectar automáticamente Excel nuevos y anteriores, manteniendo compatibilidad con todos los formatos actuales.
+- [x] Agrupar nombres de sección equivalentes sin distinguir tildes o mayúsculas y rechazar más de 30 secciones.
 
 ### Fase 5 — Verificación y despliegue
 
-- [ ] Probar creación, asignación, renombrado, eliminación y reordenación sin pérdida de platos.
-- [ ] Probar cartas antiguas sin secciones y cartas mixtas con platos sin clasificar.
-- [ ] Probar ida y vuelta de Excel sencillo y detallado, con y sin la columna `Sección`.
+- [x] Probar creación, asignación, renombrado, eliminación y reordenación sin pérdida de platos.
+- [x] Probar cartas antiguas sin secciones y cartas mixtas con platos sin clasificar.
+- [x] Probar ida y vuelta de Excel sencillo y detallado, con y sin la columna `Sección`.
 - [ ] Verificar editor, carta pública y PDF en escritorio y móvil.
-- [ ] Ejecutar pruebas completas, compilación, lint y revisión del diff.
-- [ ] Aplicar la migración compatible en Supabase y publicar primero en Preview de Vercel.
+- [x] Ejecutar pruebas completas, compilación, lint y revisión del diff: 47 pruebas correctas antes de la revisión final.
+- [x] Aplicar la migración compatible `202609080005_menu_sections.sql` en Supabase; no modifica cartas existentes.
+- [ ] Publicar en Preview de Vercel y completar la comprobación visual.
 
 ### Criterios de aceptación
 

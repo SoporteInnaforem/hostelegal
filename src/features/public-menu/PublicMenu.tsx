@@ -5,6 +5,24 @@ import { Loader2, ChefHat, AlertCircle } from "lucide-react";
 import { AllergenIcon } from "../dish-builder/components/AllergenIcon";
 import type { Dish } from "../dish-builder/store/useMenuStore";
 import { parseStoredMenu } from "../dish-builder/utils/menuValidation";
+import { groupMenuBySection } from "../dish-builder/utils/menuSections";
+
+function PublicDishCard({ dish, nested }: { dish: Dish; nested: boolean }) {
+    const allergens = [...new Set([...(dish.dishAllergens ?? []), ...dish.ingredients.flatMap(ingredient => ingredient.allergens)])];
+    const ingredients = dish.ingredients.filter(ingredient => !ingredient.isDishSummary);
+    const titleClass = "text-lg font-bold text-surface-800 leading-tight mb-2";
+    return <article className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200">
+        {nested ? <h3 className={titleClass}>{dish.name}</h3> : <h2 className={titleClass}>{dish.name}</h2>}
+        {ingredients.length > 0 && <p className="text-sm text-surface-600 mb-4 leading-relaxed"><span className="font-semibold text-surface-800">Ingredientes:</span> {ingredients.map(ingredient => ingredient.name).join(', ')}.</p>}
+        {allergens.length > 0 && <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">Alérgenos detectados:</p>
+            <div className="flex flex-wrap gap-2">{allergens.map(allergen => <div key={allergen} className="flex items-center gap-1.5 bg-white border border-surface-200 px-2 py-1 rounded-md shadow-sm">
+                <AllergenIcon allergen={allergen} size="sm" />
+                <span className="text-xs font-medium text-surface-700 capitalize">{allergen.toLowerCase().replace(/_/g, ' ')}</span>
+            </div>)}</div>
+        </div>}
+    </article>;
+}
 
 /**
  * Vista pública de la carta de alérgenos. Accesible sin autenticación.
@@ -93,6 +111,9 @@ export function PublicMenu() {
         );
     }
 
+    const sectionGroups = groupMenuBySection(platos);
+    const usesSections = sectionGroups.length > 1 || sectionGroups[0]?.name !== null;
+
     // LA CARTA DIGITAL (Diseño optimizado para móviles)
     return (
         <div className="min-h-screen bg-surface-100 pb-20">
@@ -111,57 +132,10 @@ export function PublicMenu() {
 
             {/* Lista de Platos */}
             <main className="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-4">
-                {platos.map((plato, index) => {
-                    /**
-                     * Deduplica los alérgenos de todos los ingredientes del plato.
-                     * Usamos `Set` para eliminar repeticiones: si "mayonesa" y "pan"
-                     * ambos contienen GLUTEN, el comensal ve GLUTEN solo una vez.
-                     * Esto cumple el requisito del Reglamento UE 1169/2011 de
-                     * informar sobre PRESENCIA, no sobre cantidad ni fuente.
-                     */
-                    const alergenosUnicos = [
-                        ...new Set([...(plato.dishAllergens ?? []), ...plato.ingredients.flatMap((i) => i.allergens)]),
-                    ];
-
-                    // Formateamos los ingredientes en una lista separada por comas
-                    const ingredientesVisibles = plato.ingredients.filter(i => !i.isDishSummary);
-                    const listaIngredientes = ingredientesVisibles.map(i => i.name).join(", ");
-
-                    return (
-                        <article
-                            key={plato.id || index}
-                            className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200"
-                        >
-                            <h2 className="text-lg font-bold text-surface-800 leading-tight mb-2">
-                                {plato.name}
-                            </h2>
-                            {/* INGREDIENTES: Nuevo bloque añadido aquí */}
-                            {ingredientesVisibles.length > 0 && (
-                                <p className="text-sm text-surface-600 mb-4 leading-relaxed">
-                                    <span className="font-semibold text-surface-800">Ingredientes:</span> {listaIngredientes}.
-                                </p>
-                            )}
-
-                            {alergenosUnicos.length > 0 && (
-                                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-                                    <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2">
-                                        Alérgenos detectados:
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {alergenosUnicos.map((alergeno) => (
-                                            <div key={alergeno} className="flex items-center gap-1.5 bg-white border border-surface-200 px-2 py-1 rounded-md shadow-sm">
-                                                <AllergenIcon allergen={alergeno} size="sm" />
-                                                <span className="text-xs font-medium text-surface-700 capitalize">
-                                                    {alergeno.toLowerCase().replace(/_/g, " ")}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </article>
-                    );
-                })}
+                {sectionGroups.map(group => <section key={group.key || 'unsectioned'} aria-label={group.name ?? 'Otros'} className="flex flex-col gap-4">
+                    {usesSections && <h2 className="mt-3 border-b border-brand-200 pb-2 text-xl font-bold text-brand-700">{group.name ?? 'Otros'}</h2>}
+                    {group.dishes.map(dish => <PublicDishCard key={dish.id} dish={dish} nested={usesSections} />)}
+                </section>)}
             </main>
 
             {/* Pie de página legal */}

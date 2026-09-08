@@ -81,3 +81,17 @@ test('cancel and ingredient removal preserve the committed dish', () => {
   state().cancelEdit();
   assert.deepEqual(state().draftDish, { id: '', name: '', ingredients: [] });
 });
+
+test('renaming, moving and removing sections preserve every dish', () => {
+  const first = { ...dish(), id: 'first', section: 'Postres' };
+  const second = { ...dish(), id: 'second', section: 'Tapas' };
+  const third = { ...dish(), id: 'third', section: 'PÓSTRES' };
+  useMenuStore.setState({ menu: [first, second, third], draftDish: { ...first }, revision: 0 });
+  useMenuStore.getState().renameSection('postres', 'Dulces');
+  assert.deepEqual(useMenuStore.getState().menu.map(item => item.section), ['Dulces', 'Tapas', 'Dulces']);
+  useMenuStore.getState().moveSection('Tapas', -1);
+  assert.deepEqual(useMenuStore.getState().menu.map(item => item.id), ['second', 'first', 'third']);
+  useMenuStore.getState().removeSection('DULCES');
+  assert.deepEqual(useMenuStore.getState().menu.map(item => item.section), ['Tapas', undefined, undefined]);
+  assert.equal(useMenuStore.getState().menu.length, 3);
+});

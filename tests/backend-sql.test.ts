@@ -162,3 +162,16 @@ test('dish-level allergen migration is compatible and enforces explicit review',
  } finally { await db.close(); }
 });
 
+test('menu section migration accepts optional custom sections and enforces limits', async () => {
+ const db = await database();
+ try {
+  const migration = await readFile(new URL('../supabase/migrations/202609080005_menu_sections.sql',import.meta.url),'utf8');
+  await db.exec(migration);
+  await fixtures(db); await asOwner(db);
+  await db.query('SELECT guardar_borrador_carta($1,$2,$3)',[JSON.stringify([{ ...reviewed[0], section: 'Menú del día' }]),'Secciones',owner]);
+  await assert.rejects(db.query('SELECT guardar_borrador_carta($1,$2,$3)',[JSON.stringify([{ ...reviewed[0], section: '' }]),'Inválida',owner]),/Plato no válido/);
+  const tooMany = Array.from({length:31},(_,index)=>({ ...reviewed[0], id:`dish-${index}`, section:`Sección ${index}` }));
+  await assert.rejects(db.query('SELECT guardar_borrador_carta($1,$2,$3)',[JSON.stringify(tooMany),'Inválida',owner]),/máximo de 30 secciones/);
+ } finally { await db.close(); }
+});
+
