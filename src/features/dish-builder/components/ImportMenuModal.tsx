@@ -45,7 +45,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
         <h2 id="import-menu-title" className="text-xl font-bold">Importar carta desde Excel</h2>
         <button type="button" onClick={onClose} className={buttonClass} aria-label="Cerrar importación">Cerrar</button>
       </div>
-      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla, escribe una fila por ingrediente y marca ✓ en las columnas de sus alérgenos. Marca «Ninguno» si no contiene ninguno. Revisa el resultado antes de añadir los platos a tu carta.</p>
+      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla y marca ✓ en las columnas de alérgenos. Puedes incluir una fila por ingrediente o dejar «Ingrediente» vacío para informar solo del plato y sus alérgenos. Marca «Ninguno» si no contiene ninguno.</p>
       <p className="mt-2 text-sm text-slate-600">Solo .xlsx · máximo 2 MB, 2000 filas, 300 platos y 100 ingredientes por plato. Los platos existentes no se sustituyen.</p>
       <div className="my-5 flex flex-wrap items-center gap-4">
         <button type="button" className={buttonClass} disabled={busy} onClick={async () => {
@@ -67,7 +67,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
       {busy && <p role="status">Procesando archivo…</p>}
       {error && <p role="alert" className="my-3 rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
       {result && <section aria-label="Vista previa de importación">
-        <p role="status" className="font-semibold">{fileName}: {result.dishes.length} platos · {result.dishes.reduce((n, d) => n + d.ingredients.length, 0)} ingredientes</p>
+        <p role="status" className="font-semibold">{fileName}: {result.dishes.length} platos · {result.dishes.reduce((n, d) => n + d.ingredients.filter(i => !i.isDishSummary).length, 0)} ingredientes incluidos</p>
         {result.pending > 0 && <p className="my-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{result.pending} {result.pending === 1 ? 'ingrediente pendiente' : 'ingredientes pendientes'} de revisar: los alérgenos estaban en blanco. Puedes importarlos, pero tendrás que revisarlos antes de publicar o generar el PDF. «Ninguno» solo indica ausencia revisada.</p>}
         {conflicts.length > 0 && <p role="alert" className="my-3 text-red-800">Estos platos ya están en la carta: {conflicts.map(d => d.name).join(', ')}. Corrige el archivo y vuelve a cargarlo.</p>}
         {result.errors.length > 0 && <div role="alert" className="my-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
@@ -78,7 +78,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
           {result.dishes.map(dish => <div key={dish.id}>
             <h3 className="font-semibold">{dish.name}</h3>
             <ul className="mt-1 space-y-1 text-sm">{dish.ingredients.map(ingredient => <li key={ingredient.id} className="flex flex-wrap justify-between gap-x-4 border-b border-slate-100 py-1">
-              <span>{ingredient.name}</span><span className={ingredient.allergensReviewed ? 'text-slate-600' : 'font-medium text-amber-800'}>{!ingredient.allergensReviewed ? 'Pendiente de revisión' : ingredient.allergens.length ? ingredient.allergens.map(a => ALLERGEN_LABEL[a]).join(', ') : 'Ninguno (revisado)'}</span>
+              <span>{ingredient.isDishSummary ? 'Sin ingredientes (alérgenos del plato)' : ingredient.name}</span><span className={ingredient.allergensReviewed ? 'text-slate-600' : 'font-medium text-amber-800'}>{!ingredient.allergensReviewed ? 'Pendiente de revisión' : ingredient.allergens.length ? ingredient.allergens.map(a => ALLERGEN_LABEL[a]).join(', ') : 'Ninguno (revisado)'}</span>
             </li>)}</ul>
           </div>)}
         </div>

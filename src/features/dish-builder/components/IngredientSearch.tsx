@@ -3,6 +3,7 @@ import { Search, PackageSearch, X, Plus } from "lucide-react";
 import { useMenuStore } from "../store/useMenuStore";
 import { INGREDIENTS_DB } from "../../../data/ingredients";
 import type { AllergenId } from '../utils/allergens';
+import { normalizeText } from '../utils/normalizeText';
 
 // ─── Tipos Extendidos ────────────────────────────────────────────────────────
 // Este tipo nos permite mezclar los ingredientes de la BD con los "inventados"
@@ -22,15 +23,15 @@ export function IngredientSearch() {
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const trimmed = query.trim();
-  const lowerQuery = trimmed.toLowerCase();
+  const normalizedQuery = normalizeText(trimmed);
 
   // 1. Filtramos la base de datos normal
-  const dbResults = lowerQuery
-    ? INGREDIENTS_DB.filter((i) => i.name.toLowerCase().includes(lowerQuery))
+  const dbResults = normalizedQuery
+    ? INGREDIENTS_DB.filter((i) => normalizeText(i.name).includes(normalizedQuery))
     : INGREDIENTS_DB;
 
   // 2. Comprobamos si hay coincidencia exacta para no sugerir "Crear" si ya existe
-  const isExactMatch = INGREDIENTS_DB.some((i) => i.name.toLowerCase() === lowerQuery);
+  const isExactMatch = INGREDIENTS_DB.some((i) => normalizeText(i.name) === normalizedQuery);
 
   // 3. Si ha escrito algo y no es exactamente igual a la BD, creamos la opción "Añadir..."
   const customOption: DisplayItem | null =
@@ -70,10 +71,9 @@ export function IngredientSearch() {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const alreadyAdded = (item: DisplayItem) => {
-    // Si es de la BD, verificamos por ID para mayor precisión
-    if (!item.isCustom) return draftIngredients.some((ing) => ing.id === item.id);
-    // Si es custom, verificamos por nombre para que no añadan "Patata" tres veces
-    return draftIngredients.some((ing) => ing.name.toLowerCase() === item.name.toLowerCase());
+    return draftIngredients.some((ing) =>
+      ing.id === item.id || normalizeText(ing.name) === normalizeText(item.name),
+    );
   };
 
   function handleSelect(item: DisplayItem) {

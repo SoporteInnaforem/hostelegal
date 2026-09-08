@@ -18,6 +18,8 @@ export interface Ingredient {
   name: string;
   allergens: AllergenId[];
   allergensReviewed?: boolean;
+  /** Fila importada con alérgenos globales del plato y sin ingredientes declarados. */
+  isDishSummary?: boolean;
 }
 
 /**

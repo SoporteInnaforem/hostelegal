@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { zipSync } from 'fflate';
-import { CHECK_HEADERS, createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
+import { CHECK_HEADERS, createMenuExportBuffer, createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
 
 const header = ['Plato', 'Ingrediente', 'Alérgenos'];
 const checkRow = (name: string, marks: Record<string, unknown>) => ['Plato', name, ...CHECK_HEADERS.slice(2).map(label => marks[label] ?? '')];
@@ -54,9 +54,42 @@ test('agrupa platos sin distinguir acentos y conserva revisión explícita', () 
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(ids.every(Number.isSafeInteger));
 });
-test('errores indican filas originales y no aceptan desconocidos ni fórmulas', () => {
+
+test('admite platos con alérgenos y sin ingredientes', () => {
+  const result = parseMenuRows([CHECK_HEADERS,
+    checkRow('', { Pescado: '✓' }),
+    ['Tortilla', '', ...CHECK_HEADERS.slice(2).map(label => label === 'Huevos' ? '✓' : '')],
+  ]);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.dishes.length, 2);
+  assert.equal(result.dishes[0].ingredients[0].isDishSummary, true);
+  assert.deepEqual(result.dishes[0].ingredients[0].allergens, ['PESCADO']);
+  assert.equal(result.dishes[1].ingredients[0].name, 'Alérgenos del plato');
+});
+
+test('exporta la carta con el formato de la plantilla y permite volver a importarla', async () => {
+  const menu = [{ id: 'dish-1', name: 'Atún a la plancha', ingredients: [
+    { id: 1, name: 'Atún', allergens: ['PESCADO'] as const, allergensReviewed: true },
+    { id: 2, name: 'Sal', allergens: [], allergensReviewed: true },
+  ] }, { id: 'dish-2', name: 'Postre', ingredients: [
+    { id: 3, name: 'Alérgenos del plato', allergens: ['LACTEOS'] as const, allergensReviewed: true, isDishSummary: true },
+  ] }];
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await createMenuExportBuffer(menu));
+  const sheet = workbook.getWorksheet('Carta')!;
+  assert.deepEqual(sheet.getRow(1).values.slice(1), CHECK_HEADERS);
+  assert.equal(sheet.getCell('B4').value, '');
+  const imported = parseMenuWorkbook(workbook);
+  assert.deepEqual(imported.errors, []);
+  assert.equal(imported.dishes.length, 2);
+  assert.deepEqual(imported.dishes[0].ingredients.map(i => i.allergens), [['PESCADO'], []]);
+  assert.equal(imported.dishes[1].ingredients[0].isDishSummary, true);
+});
+test('errores indican filas originales, admiten ingredientes vacíos y rechazan desconocidos o fórmulas', () => {
   const result = parseMenuRows([header, [], ['Sopa', 'Caldo', 'Leche'], ['Pan', { formula: 'A1', result: 'Trigo' }, 'Gluten'], ['Sopa', '', ''], ['Sopa', 'Caldo', 'Ninguno; Apio']]);
-  assert.deepEqual(result.errors.map(e => e.row), [3, 4, 5, 6]);
+  assert.deepEqual(result.errors.map(e => e.row), [3, 4, 6]);
+  assert.equal(result.dishes[0].ingredients[0].isDishSummary, true);
+  assert.equal(result.pending, 1);
 });
 test('no sustituye platos existentes ni duplica ingredientes normalizados', () => {
   const existing = [{ id: 'original', name: 'Sopá', ingredients: [] }];

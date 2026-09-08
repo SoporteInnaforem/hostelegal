@@ -20,7 +20,7 @@ export function parseStoredMenu(value: unknown): Dish[] {
     ids.add(dish.id);
     const ingredientIds = new Set<number>();
     for (const i of dish.ingredients) {
-      if (!i || !Number.isSafeInteger(i.id) || ingredientIds.has(i.id) || typeof i.name !== 'string' || !i.name.trim() || i.name.length > 160 || !Array.isArray(i.allergens) || i.allergens.some((a: unknown) => typeof a !== 'string' || !Object.hasOwn(ALLERGEN_LABEL, a)) || (i.allergensReviewed !== undefined && typeof i.allergensReviewed !== 'boolean')) throw new Error('Hay un ingrediente guardado con datos inválidos. Contacta con soporte.');
+      if (!i || !Number.isSafeInteger(i.id) || ingredientIds.has(i.id) || typeof i.name !== 'string' || !i.name.trim() || i.name.length > 160 || !Array.isArray(i.allergens) || i.allergens.some((a: unknown) => typeof a !== 'string' || !Object.hasOwn(ALLERGEN_LABEL, a)) || (i.allergensReviewed !== undefined && typeof i.allergensReviewed !== 'boolean') || (i.isDishSummary !== undefined && typeof i.isDishSummary !== 'boolean')) throw new Error('Hay un ingrediente guardado con datos inválidos. Contacta con soporte.');
       ingredientIds.add(i.id);
     }
   }

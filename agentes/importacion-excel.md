@@ -13,11 +13,12 @@ Añadir una importación guiada de cartas desde `.xlsx`, con plantilla, validaci
 ## Contrato funcional
 
 - Hoja `Carta` con `Plato`, `Ingrediente`, 14 columnas obtenidas del catálogo de alérgenos y `Ninguno`.
-- Una fila por ingrediente.
+- Una fila por ingrediente, o una fila con `Ingrediente` vacío para informar directamente de los alérgenos del plato.
 - Marcas ✓/☐ seleccionables por celda sin macros. El parser también acepta X, Sí y booleanos. Se mantiene compatibilidad con la plantilla antigua de tres columnas y alérgenos separados por punto y coma.
 - `Ninguno` confirma explícitamente que no contiene alérgenos declarables.
 - Una fila sin ninguna marca queda pendiente de revisión y bloquea la publicación. `Ninguno` no puede combinarse con otros alérgenos.
 - La importación añade platos a la carta y no sobrescribe los existentes.
+- La carta existente se puede exportar con las mismas columnas y marcas de la plantilla, de modo que el archivo se pueda volver a importar.
 
 ## Límites
 

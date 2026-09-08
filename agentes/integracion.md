@@ -9,6 +9,8 @@ Integrar los frentes de trabajo, mantener el aislamiento de sesión, mostrar el 
 - Vincular el estado Zustand al usuario autenticado y limpiarlo al cambiar de cuenta.
 - Separar guardado de borrador y publicación.
 - Incorporar el modal de Excel al constructor.
+- Permitir exportar la carta actual a un Excel compatible con el importador.
+- Normalizar tildes, mayúsculas y espacios al buscar o comparar ingredientes.
 - Permitir revisar manualmente los alérgenos de ingredientes personalizados o importados.
 - Validar el JSON recuperado antes de incorporarlo al estado.
 - Adaptar la carta pública a la RPC que solo expone cartas publicadas.

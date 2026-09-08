@@ -14,7 +14,7 @@ function IngredientReview({ ingredient }: { ingredient: Ingredient }) {
     {!reviewed && <p className="text-warning-600 text-xs font-semibold mb-2">Pendiente de revisión</p>}
     {reviewed && <AllergenCell allergens={ingredient.allergens} />}
     <details className="mt-2 text-xs">
-      <summary className="cursor-pointer text-brand-600">Revisar alérgenos de {ingredient.name}</summary>
+      <summary className="cursor-pointer text-brand-600">Revisar alérgenos de {ingredient.isDishSummary ? 'este plato' : ingredient.name}</summary>
       <fieldset className="grid grid-cols-2 gap-2 mt-2">
         <legend className="sr-only">Alérgenos de {ingredient.name}</legend>
         {(Object.keys(ALLERGEN_LABEL) as AllergenId[]).map((id) => <label key={id} className="flex items-center gap-1">
@@ -108,7 +108,7 @@ export function IngredientTable() {
               <tbody className="divide-y divide-surface-200">
                 {ingredients.map((ingredient, idx) => (
                   <tr key={ingredient.id} className={['transition-colors duration-100 hover:bg-brand-50', idx % 2 !== 0 ? 'bg-surface-50' : 'bg-white'].join(' ')}>
-                    <td className="px-4 py-3 font-medium text-surface-800 whitespace-nowrap">{ingredient.name}</td>
+                    <td className="px-4 py-3 font-medium text-surface-800 whitespace-nowrap">{ingredient.isDishSummary ? 'Sin ingredientes (alérgenos del plato)' : ingredient.name}</td>
                     <td className="px-4 py-3"><IngredientReview ingredient={ingredient} /></td>
                     <td className="px-4 py-3 text-center"><DeleteButton ingredient={ingredient} /></td>
                   </tr>

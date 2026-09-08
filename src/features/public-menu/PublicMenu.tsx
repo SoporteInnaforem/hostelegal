@@ -124,7 +124,8 @@ export function PublicMenu() {
                     ];
 
                     // Formateamos los ingredientes en una lista separada por comas
-                    const listaIngredientes = plato.ingredients.map(i => i.name).join(", ");
+                    const ingredientesVisibles = plato.ingredients.filter(i => !i.isDishSummary);
+                    const listaIngredientes = ingredientesVisibles.map(i => i.name).join(", ");
 
                     return (
                         <article
@@ -135,7 +136,7 @@ export function PublicMenu() {
                                 {plato.name}
                             </h2>
                             {/* INGREDIENTES: Nuevo bloque añadido aquí */}
-                            {plato.ingredients.length > 0 && (
+                            {ingredientesVisibles.length > 0 && (
                                 <p className="text-sm text-surface-600 mb-4 leading-relaxed">
                                     <span className="font-semibold text-surface-800">Ingredientes:</span> {listaIngredientes}.
                                 </p>

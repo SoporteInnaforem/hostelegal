@@ -4,6 +4,7 @@ import autoTable from "jspdf-autotable";
 import {
   ChefHat,
   FileDown,
+  FileSpreadsheet,
   Loader2,
   Trash2,
   BookOpen,
@@ -25,6 +26,7 @@ import { PublishModal } from "./components/PublishModal";
 import { ImportMenuModal } from "./components/ImportMenuModal";
 import { useMenuPersistence } from "./useMenuPersistence";
 import { pendingIngredients } from "./utils/menuValidation";
+import { downloadMenuExcel } from "./utils/menuImport";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -309,7 +311,7 @@ async function exportCartaPDF(
     const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
     const rows = ingredients.map((ingredient) => {
       rowAllergens.push(normalizeAllergens(ingredient?.allergens));
-      return [ingredient?.name?.trim() || "Ingrediente sin nombre", ""];
+      return [ingredient?.isDishSummary ? "Ingredientes no incluidos" : ingredient?.name?.trim() || "Ingrediente sin nombre", ""];
     });
 
     autoTable(doc, {
@@ -528,6 +530,7 @@ export function MenuBuilder() {
   const persistence = useMenuPersistence();
   const [importOpen, setImportOpen] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [isExcelExporting, setIsExcelExporting] = useState(false);
 
   const [isExporting, setIsExporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -561,6 +564,19 @@ export function MenuBuilder() {
       setExportError(error instanceof Error ? error.message : "No se pudo generar el PDF.");
     } finally {
       setIsExporting(false);
+    }
+  }
+
+  async function handleExcelExport() {
+    if (!menu.length || isExcelExporting) return;
+    setExportError(null);
+    setIsExcelExporting(true);
+    try {
+      await downloadMenuExcel(menu, restaurantName);
+    } catch {
+      setExportError('No se pudo generar el Excel. Inténtalo de nuevo.');
+    } finally {
+      setIsExcelExporting(false);
     }
   }
 
@@ -625,7 +641,13 @@ export function MenuBuilder() {
             <p className="text-xs mt-1">El QR cambia al publicar la carta. Los platos en el editor se guardan al añadirlos a la carta.</p>
           </div>
           <button type="button" onClick={persistence.retry} disabled={persistence.saving} className="px-3 py-2 rounded-lg bg-surface-100">{persistence.error ? 'Reintentar' : 'Guardar ahora'}</button>
-          <button type="button" onClick={() => setImportOpen(true)} className="px-4 py-2 rounded-lg bg-brand-50 text-brand-700 font-semibold">Importar Excel</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={handleExcelExport} disabled={!menu.length || isExcelExporting} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-100 text-surface-700 font-semibold disabled:opacity-50">
+              {isExcelExporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+              {isExcelExporting ? 'Exportando…' : 'Exportar Excel'}
+            </button>
+            <button type="button" onClick={() => setImportOpen(true)} className="px-4 py-2 rounded-lg bg-brand-50 text-brand-700 font-semibold">Importar Excel</button>
+          </div>
         </div>
         {pending > 0 && <p role="alert" className="rounded-xl bg-warning-50 text-warning-700 p-4">Hay {pending} ingredientes pendientes de revisión. Edita sus platos y confirma los alérgenos antes de publicar o descargar el PDF.</p>}
         {exportError && <p role="alert" className="text-danger-600">{exportError}</p>}

@@ -95,3 +95,11 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 
 Última validación: `npm run build`, `npm run lint` y las 35 pruebas de `npm test` completados correctamente. Cuota mensual preparada localmente, pendiente de despliegue e integración con Make.
 - Validación de la recuperación de tarjetas: compilación y lint correctos; catálogo verificado con 17 identificadores únicos. Pendiente comprobación visual en navegador.
+
+## Mejoras Excel e ingredientes (2026-09-08)
+
+- [x] Añadir exportación de la carta al mismo formato de columnas y marcas que la plantilla Excel.
+- [x] Hacer que el archivo exportado pueda volver a importarse conservando alérgenos y revisiones.
+- [x] Normalizar tildes, mayúsculas y espacios en la búsqueda y deduplicación de ingredientes (`Atún` = `Atun`).
+- [x] Admitir filas con plato y alérgenos sin ingrediente, manteniendo esa información editable y sin mostrar un ingrediente ficticio en la carta pública.
+- [x] Ejecutar pruebas, compilación, lint y revisión final del diff: 38 pruebas, compilación y lint correctos.
