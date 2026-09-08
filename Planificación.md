@@ -114,3 +114,61 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Añadir una migración compatible que no modifica las cartas existentes.
 - [x] Aplicar la migración `202609080004_dish_level_allergens.sql` al proyecto Supabase vinculado y validar el conjunto: 41 pruebas, compilación y lint correctos.
 - [x] Retirar de Documentación de interés el aviso y el enlace para abrir la carpeta completa en Drive; se conservan las tarjetas y descargas individuales.
+
+## Secciones personalizables de la carta (plan, 2026-09-08)
+
+### Decisión de diseño
+
+- Añadir `section?: string` a cada plato. Se mantiene `Dish[]` y las RPC actuales, por lo que no se transforman ni se borran cartas existentes.
+- Las secciones serán libres. Ejemplos como Desayunos, Tapas, Mediodía o Postres serán sugerencias, no valores cerrados.
+- Máximo 30 secciones y 60 caracteres por nombre. La comparación ignorará tildes, mayúsculas y espacios repetidos.
+- El orden se obtiene de la posición de los platos: cada sección forma un bloque y al moverla se mueve el bloque completo.
+- Si ningún plato tiene sección, la carta conserva exactamente la presentación actual. Si hay secciones, los platos sin clasificar se agrupan al final bajo `Otros`.
+- Eliminar una sección moverá sus platos a `Sin sección`; nunca eliminará contenido del usuario.
+
+### Fase 1 — Modelo y compatibilidad
+
+- [ ] Ampliar `Dish` con la sección opcional y crear utilidades puras para normalizar, agrupar y ordenar.
+- [ ] Incorporar acciones de estado para asignar un plato, renombrar una sección, eliminarla sin borrar platos y mover bloques.
+- [ ] Validar al cargar que `section`, si existe, sea texto no vacío de hasta 60 caracteres.
+- [ ] Añadir una migración compatible de `validar_datos_carta` que limite tipo, longitud y máximo de 30 secciones sin modificar filas existentes.
+
+### Fase 2 — Constructor de carta
+
+- [ ] Añadir al editor del plato un selector que permita elegir una sección existente o escribir una nueva.
+- [ ] Mostrar sugerencias iniciales sin restringir los nombres personalizados.
+- [ ] Agrupar la tabla de platos por secciones, mostrando el número de platos de cada bloque.
+- [ ] Permitir renombrar, mover arriba/abajo y eliminar una sección; al eliminarla, mover sus platos a `Sin sección`.
+- [ ] Permitir cambiar un plato de sección desde su edición.
+- [ ] Mantener las protecciones actuales contra pérdida de un borrador en curso.
+
+### Fase 3 — Carta pública y PDF
+
+- [ ] Agrupar la carta pública por secciones con encabezados claros y accesibles.
+- [ ] Mantener la vista plana actual cuando no existan secciones.
+- [ ] Reflejar el mismo orden y las mismas cabeceras en el resumen y desglose del PDF.
+- [ ] Evitar cabeceras huérfanas al cambiar de página en el PDF.
+
+### Fase 4 — Excel
+
+- [ ] Añadir `Sección` como primera columna opcional de la plantilla sencilla y del Excel detallado.
+- [ ] Exportar una fila por plato conservando su sección; dejar la celda vacía para platos sin clasificar.
+- [ ] Detectar automáticamente Excel nuevos y anteriores, manteniendo compatibilidad con todos los formatos actuales.
+- [ ] Agrupar nombres de sección equivalentes sin distinguir tildes o mayúsculas y rechazar más de 30 secciones.
+
+### Fase 5 — Verificación y despliegue
+
+- [ ] Probar creación, asignación, renombrado, eliminación y reordenación sin pérdida de platos.
+- [ ] Probar cartas antiguas sin secciones y cartas mixtas con platos sin clasificar.
+- [ ] Probar ida y vuelta de Excel sencillo y detallado, con y sin la columna `Sección`.
+- [ ] Verificar editor, carta pública y PDF en escritorio y móvil.
+- [ ] Ejecutar pruebas completas, compilación, lint y revisión del diff.
+- [ ] Aplicar la migración compatible en Supabase y publicar primero en Preview de Vercel.
+
+### Criterios de aceptación
+
+- Un restaurante puede crear cualquier nombre de sección y asignar cada plato a una de ellas.
+- `Postres`, `postres` y `Póstres` no crean tres secciones distintas.
+- Renombrar, mover o eliminar una sección no elimina ni duplica platos.
+- El editor, Excel, PDF y carta pública presentan las mismas agrupaciones y el mismo orden.
+- Las cartas y los Excel existentes continúan funcionando sin intervención del usuario.
