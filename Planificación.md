@@ -103,3 +103,13 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Normalizar tildes, mayúsculas y espacios en la búsqueda y deduplicación de ingredientes (`Atún` = `Atun`).
 - [x] Admitir filas con plato y alérgenos sin ingrediente, manteniendo esa información editable y sin mostrar un ingrediente ficticio en la carta pública.
 - [x] Ejecutar pruebas, compilación, lint y revisión final del diff: 38 pruebas, compilación y lint correctos.
+
+## Excel sencillo, una fila por plato (2026-09-08)
+
+- [x] Cambiar la plantilla y la exportación principal a una fila por plato.
+- [x] Separar los ingredientes mediante saltos de línea dentro de la celda `Ingredientes`.
+- [x] Guardar los alérgenos globales del plato sin atribuirlos incorrectamente a cada ingrediente.
+- [x] Mantener la importación y exportación detalladas por ingrediente como formato opcional compatible.
+- [x] Mostrar los alérgenos generales en el editor, el PDF y la carta pública.
+- [x] Añadir una migración compatible que no modifica las cartas existentes.
+- [x] Aplicar la migración `202609080004_dish_level_allergens.sql` al proyecto Supabase vinculado y validar el conjunto: 41 pruebas, compilación y lint correctos.

@@ -2,10 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { zipSync } from 'fflate';
-import { CHECK_HEADERS, createMenuExportBuffer, createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
+import { CHECK_HEADERS, SIMPLE_HEADERS, createDetailedMenuExportBuffer, createMenuExportBuffer, createMenuTemplateBuffer, parseMenuRows, parseMenuWorkbook, readMenuFile, validateXlsxArchive } from './menuImport';
 
 const header = ['Plato', 'Ingrediente', 'Alérgenos'];
 const checkRow = (name: string, marks: Record<string, unknown>) => ['Plato', name, ...CHECK_HEADERS.slice(2).map(label => marks[label] ?? '')];
+const simpleRow = (dish: string, ingredients: string, marks: Record<string, unknown>) => [dish, ingredients, ...SIMPLE_HEADERS.slice(2).map(label => marks[label] ?? '')];
 
 test('lee marcas múltiples, Ninguno y casillas booleanas sin inferir revisión de filas vacías', () => {
   const result = parseMenuRows([CHECK_HEADERS,
@@ -32,13 +33,14 @@ test('la plantilla marcada se guarda y se importa con todos los alérgenos de la
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await createMenuTemplateBuffer());
   const sheet = workbook.getWorksheet('Carta')!;
-  sheet.spliceRows(2, 3);
-  sheet.getRow(2).values = checkRow('Completo', Object.fromEntries(CHECK_HEADERS.slice(2, -1).map(label => [label, '✓'])));
+  sheet.spliceRows(2, 2);
+  sheet.getRow(2).values = simpleRow('Completo', 'Ingrediente uno\nIngrediente dos', Object.fromEntries(SIMPLE_HEADERS.slice(2, -1).map(label => [label, '✓'])));
   assert.equal(sheet.getCell('C3').dataValidation.type, 'list');
   const buffer = await workbook.xlsx.writeBuffer();
   const result = await readMenuFile(new File([new Uint8Array(buffer)], 'carta.xlsx'), []);
   assert.deepEqual(result.errors, []);
-  assert.equal(result.dishes[0].ingredients[0].allergens.length, 14);
+  assert.equal(result.dishes[0].dishAllergens?.length, 14);
+  assert.deepEqual(result.dishes[0].ingredients.map(ingredient => ingredient.name), ['Ingrediente uno', 'Ingrediente dos']);
   assert.equal(result.pending, 0);
 });
 test('agrupa platos sin distinguir acentos y conserva revisión explícita', () => {
@@ -77,13 +79,28 @@ test('exporta la carta con el formato de la plantilla y permite volver a importa
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await createMenuExportBuffer(menu));
   const sheet = workbook.getWorksheet('Carta')!;
-  assert.deepEqual(sheet.getRow(1).values.slice(1), CHECK_HEADERS);
-  assert.equal(sheet.getCell('B4').value, '');
+  assert.deepEqual(sheet.getRow(1).values.slice(1), SIMPLE_HEADERS);
+  assert.equal(sheet.getCell('B2').value, 'Atún\nSal');
+  assert.equal(sheet.getCell('B3').value, '');
   const imported = parseMenuWorkbook(workbook);
   assert.deepEqual(imported.errors, []);
   assert.equal(imported.dishes.length, 2);
-  assert.deepEqual(imported.dishes[0].ingredients.map(i => i.allergens), [['PESCADO'], []]);
+  assert.deepEqual(imported.dishes[0].dishAllergens, ['PESCADO']);
+  assert.deepEqual(imported.dishes[0].ingredients.map(i => i.allergens), [[], []]);
+  assert.deepEqual(imported.dishes[0].ingredients.map(i => i.name), ['Atún', 'Sal']);
   assert.equal(imported.dishes[1].ingredients[0].isDishSummary, true);
+});
+
+test('mantiene disponible la exportación detallada por ingrediente', async () => {
+  const menu = [{ id: 'dish-1', name: 'Bocadillo', ingredients: [
+    { id: 1, name: 'Pan', allergens: ['GLUTEN'] as const, allergensReviewed: true },
+    { id: 2, name: 'Queso', allergens: ['LACTEOS'] as const, allergensReviewed: true },
+  ] }];
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await createDetailedMenuExportBuffer(menu));
+  assert.deepEqual(workbook.getWorksheet('Carta')!.getRow(1).values.slice(1), CHECK_HEADERS);
+  const imported = parseMenuWorkbook(workbook);
+  assert.deepEqual(imported.dishes[0].ingredients.map(i => i.allergens), [['GLUTEN'], ['LACTEOS']]);
 });
 test('errores indican filas originales, admiten ingredientes vacíos y rechazan desconocidos o fórmulas', () => {
   const result = parseMenuRows([header, [], ['Sopa', 'Caldo', 'Leche'], ['Pan', { formula: 'A1', result: 'Trigo' }, 'Gluten'], ['Sopa', '', ''], ['Sopa', 'Caldo', 'Ninguno; Apio']]);

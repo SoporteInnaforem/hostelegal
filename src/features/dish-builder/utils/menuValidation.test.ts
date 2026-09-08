@@ -22,6 +22,18 @@ test('accepts empty menus and valid legacy ingredients without silently reviewin
   assert.equal(pendingIngredients(parsed), 1);
 });
 
+test('dish-level allergens replace ingredient review only when explicitly confirmed', () => {
+  const reviewedDish = { ...dish(), dishAllergens: ['PESCADO'] as const, dishAllergensReviewed: true };
+  assert.deepEqual(parseStoredMenu([reviewedDish])[0].dishAllergens, ['PESCADO']);
+  assert.equal(pendingIngredients([reviewedDish]), 0);
+  assert.equal(pendingIngredients([{ ...reviewedDish, dishAllergensReviewed: false }]), 1);
+  for (const invalid of [
+    { ...dish(), dishAllergensReviewed: true },
+    { ...dish(), dishAllergens: ['PESCADO'] },
+    { ...dish(), dishAllergens: ['DESCONOCIDO'], dishAllergensReviewed: true },
+  ]) assert.throws(() => parseStoredMenu([invalid]));
+});
+
 test('rejects malformed menus, dish metadata and oversized collections', () => {
   for (const invalid of [null, {}, '[]', [null], [{ ...dish(), name: '' }], [{ ...dish(), name: 'a'.repeat(121) }], [{ ...dish(), ingredients: [] }], [{ ...dish(), ingredients: Array.from({ length: 101 }, () => ingredient()) }], Array.from({ length: 301 }, dish)]) {
     assert.throws(() => parseStoredMenu(invalid));

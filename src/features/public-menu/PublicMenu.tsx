@@ -120,7 +120,7 @@ export function PublicMenu() {
                      * informar sobre PRESENCIA, no sobre cantidad ni fuente.
                      */
                     const alergenosUnicos = [
-                        ...new Set(plato.ingredients.flatMap((i) => i.allergens)),
+                        ...new Set([...(plato.dishAllergens ?? []), ...plato.ingredients.flatMap((i) => i.allergens)]),
                     ];
 
                     // Formateamos los ingredientes en una lista separada por comas

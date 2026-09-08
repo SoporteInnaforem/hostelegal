@@ -11,6 +11,7 @@ export const normalizeImportName = normalizeText;
 export const DISH_SUMMARY_NAME = 'Alérgenos del plato';
 const allergenNames = new Map<string, AllergenId>(Object.entries(ALLERGEN_LABEL).flatMap(([id, label]) => [[normalizeImportName(id), id as AllergenId], [normalizeImportName(label), id as AllergenId]]));
 export const CHECK_HEADERS = ['Plato', 'Ingrediente', ...Object.values(ALLERGEN_LABEL), 'Ninguno'];
+export const SIMPLE_HEADERS = ['Plato', 'Ingredientes', ...Object.values(ALLERGEN_LABEL), 'Ninguno'];
 
 function readCheck(value: unknown): boolean | null {
   if (value == null || value === false || value === 0) return false;
@@ -28,6 +29,9 @@ export function parseMenuRows(rows: unknown[][], existingMenu: Dish[] = []): Men
   const error = (row: number, message: string) => result.errors.push({ row, message });
   if (rows.length > IMPORT_LIMITS.rows + 1) { error(0, 'El archivo supera las 2000 filas de datos.'); return result; }
   const header = rows[0] ?? [];
+  if (header.length === SIMPLE_HEADERS.length && header.every((v, i) => typeof v === 'string' && normalizeImportName(v) === normalizeImportName(SIMPLE_HEADERS[i]))) {
+    return parseSimpleRows(rows, existingMenu);
+  }
   if (header.length === CHECK_HEADERS.length && header.every((v, i) => typeof v === 'string' && normalizeImportName(v) === normalizeImportName(CHECK_HEADERS[i]))) {
     const converted: unknown[][] = [['Plato', 'Ingrediente', 'Alérgenos']];
     rows.slice(1).forEach((row, index) => {
@@ -44,7 +48,7 @@ export function parseMenuRows(rows: unknown[][], existingMenu: Dish[] = []): Men
     return { ...parsed, errors: [...result.errors, ...parsed.errors.filter(e => e.row !== 0 || !result.errors.length)].sort((a, b) => a.row - b.row) };
   }
   if (header.length !== 3 || header.some((v, i) => typeof v !== 'string' || normalizeImportName(v) !== ['plato', 'ingrediente', 'alergenos'][i])) {
-    error(1, 'Conserva las cabeceras de la plantilla: Plato, Ingrediente, los 14 alérgenos y Ninguno. También se admite la plantilla antigua de tres columnas.'); return result;
+    error(1, 'Conserva las cabeceras de la plantilla: Plato, Ingredientes, los 14 alérgenos y Ninguno. También se admiten el formato detallado y la plantilla antigua.'); return result;
   }
   const existing = new Set(existingMenu.map(d => normalizeImportName(d.name)));
   const usedIds = new Set(existingMenu.flatMap(d => d.ingredients.map(i => i.id)));
@@ -154,15 +158,16 @@ export async function readMenuFile(file: File, existingMenu: Dish[]): Promise<Me
   return parseMenuWorkbook(workbook, existingMenu);
 }
 
-async function createMenuWorkbook(includeExamples: boolean) {
+async function createMenuWorkbook(includeExamples: boolean, detailed = false) {
   const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Carta');
-  sheet.columns = CHECK_HEADERS.map((header, i) => ({ header, width: i < 2 ? 30 : 13 }));
-  const example = (dish: string, ingredient: string, labels: string[]) => [dish, ingredient, ...CHECK_HEADERS.slice(2).map(label => labels.includes(label) ? '✓' : '')];
-  if (includeExamples) sheet.addRows([example('EJEMPLO: Ensalada (borrar)', 'Tomate', ['Ninguno']), example('EJEMPLO: Ensalada (borrar)', 'Queso', ['Lácteos']), example('EJEMPLO: Tostada (borrar)', 'Pan', ['Gluten', 'Sésamo'])]);
+  const headers = detailed ? CHECK_HEADERS : SIMPLE_HEADERS;
+  sheet.columns = headers.map((header, i) => ({ header, width: i === 1 && !detailed ? 42 : i < 2 ? 30 : 13 }));
+  const example = (dish: string, ingredients: string, labels: string[]) => [dish, ingredients, ...headers.slice(2).map(label => labels.includes(label) ? '✓' : '')];
+  if (includeExamples) sheet.addRows([example('EJEMPLO: Ensalada (borrar)', 'Tomate\nQueso\nLechuga', ['Lácteos']), example('EJEMPLO: Tostada (borrar)', 'Pan\nTomate', ['Gluten', 'Sésamo'])]);
   for (let row = 2; row <= IMPORT_LIMITS.rows + 1; row++) {
-    for (let column = 3; column <= CHECK_HEADERS.length; column++) {
+    for (let column = 3; column <= headers.length; column++) {
       const cell = sheet.getCell(row, column);
       cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"✓,☐"'], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Marca no válida', error: 'Selecciona ✓ para marcar o ☐ para desmarcar.' };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -173,12 +178,13 @@ async function createMenuWorkbook(includeExamples: boolean) {
   sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006B61' } };
   sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 2 }];
+  sheet.getColumn(2).alignment = { wrapText: true, vertical: 'top' };
   const instructions = workbook.addWorksheet('Instrucciones');
   instructions.getColumn(1).width = 115;
   instructions.addRows([
     ['IMPORTAR CARTA — HOSTELEGAL'],
-    ['Borra las filas de EJEMPLO de Carta y escribe tus datos. Repite el nombre del plato en cada fila.'],
-    ['Puedes dejar Ingrediente vacío e indicar directamente los alérgenos del plato. Si incluyes ingredientes, usa una fila por ingrediente.'],
+    ['Borra las filas de EJEMPLO de Carta y escribe un plato por fila.'],
+    ['Escribe cada ingrediente en una línea distinta dentro de la misma celda (Alt+Enter en Excel). También puedes dejar Ingredientes vacío.'],
     ['Conserva la hoja Carta y todas sus cabeceras. No uses fórmulas ni celdas combinadas.'],
     ['Marca ✓ en la columna de cada alérgeno presente. Selecciona la marca con el desplegable de la celda. Puedes marcar varios.'],
     ['Marca Ninguno solo si has confirmado la ausencia de alérgenos. No lo combines con otras marcas.'],
@@ -194,6 +200,48 @@ async function createMenuWorkbook(includeExamples: boolean) {
   return workbook;
 }
 
+function parseSimpleRows(rows: unknown[][], existingMenu: Dish[]): MenuImportResult {
+  const result: MenuImportResult = { dishes: [], errors: [], pending: 0 };
+  const existing = new Set(existingMenu.map(d => normalizeImportName(d.name)));
+  const names = new Set<string>();
+  const usedIds = new Set(existingMenu.flatMap(d => d.ingredients.map(i => i.id)));
+  const error = (row: number, message: string) => result.errors.push({ row, message });
+  for (let index = 1; index < rows.length; index++) {
+    const row = rows[index];
+    const line = index + 1;
+    if (row.every(v => v == null || (typeof v === 'string' && !v.trim()))) continue;
+    if (row.slice(0, 2).some(v => v != null && typeof v !== 'string')) { error(line, 'Plato e ingredientes solo admiten texto; elimina fórmulas, fechas y números.'); continue; }
+    const marks = SIMPLE_HEADERS.slice(2).map((_, i) => readCheck(row[i + 2]));
+    const invalid = marks.findIndex(mark => mark === null);
+    if (invalid >= 0 || row.slice(SIMPLE_HEADERS.length).some(v => v != null && v !== '')) { error(line, invalid >= 0 ? `Marca no válida en «${SIMPLE_HEADERS[invalid + 2]}». Usa ✓, X, Sí o deja la celda vacía; no uses fórmulas.` : 'Hay datos fuera de las columnas de la plantilla.'); continue; }
+    const name = ((row[0] ?? '') as string).trim();
+    const ingredientNames = ((row[1] ?? '') as string).split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    if (!name) { error(line, 'El plato es obligatorio en cada fila.'); continue; }
+    if (name.length > 120 || ingredientNames.some(value => value.length > 160)) { error(line, 'Máximo 120 caracteres para el plato y 160 por ingrediente.'); continue; }
+    if (normalizeImportName(name).startsWith('ejemplo:')) { error(line, 'Sustituye o elimina las filas de ejemplo antes de importar.'); continue; }
+    if (ingredientNames.length > IMPORT_LIMITS.ingredients) { error(line, `«${name}» supera los 100 ingredientes.`); continue; }
+    const duplicateIngredient = ingredientNames.find((value, position) => ingredientNames.findIndex(other => normalizeImportName(other) === normalizeImportName(value)) !== position);
+    if (duplicateIngredient) { error(line, `Ingrediente repetido en «${name}»: ${duplicateIngredient}.`); continue; }
+    const key = normalizeImportName(name);
+    if (existing.has(key) || names.has(key)) { error(line, `El plato «${name}» está repetido o ya existe en tu carta.`); continue; }
+    if (result.dishes.length >= IMPORT_LIMITS.dishes) { error(line, 'Máximo 300 platos por importación.'); continue; }
+    const selected = SIMPLE_HEADERS.slice(2).filter((_, i) => marks[i]);
+    if (selected.includes('Ninguno') && selected.length !== 1) { error(line, '«Ninguno» no puede combinarse con otros alérgenos.'); continue; }
+    const sourceNames = ingredientNames.length ? ingredientNames : [DISH_SUMMARY_NAME];
+    const ingredients = sourceNames.map((ingredientName): Ingredient => {
+      let id: number;
+      do { const random = crypto.getRandomValues(new Uint32Array(2)); id = (random[0] & 0x1fffff) * 0x100000000 + random[1]; } while (!id || usedIds.has(id));
+      usedIds.add(id);
+      return { id, name: ingredientName, allergens: [], allergensReviewed: false, ...(ingredientNames.length ? {} : { isDishSummary: true }) };
+    });
+    result.dishes.push({ id: crypto.randomUUID(), name, ingredients, dishAllergens: selected.filter(label => label !== 'Ninguno').map(label => allergenNames.get(normalizeImportName(label))!), dishAllergensReviewed: selected.length > 0 });
+    names.add(key);
+    if (!selected.length) result.pending++;
+  }
+  if (!result.dishes.length && !result.errors.length) error(0, 'La hoja Carta no contiene platos para importar.');
+  return result;
+}
+
 export async function createMenuTemplateBuffer() {
   const workbook = await createMenuWorkbook(true);
   return workbook.xlsx.writeBuffer();
@@ -202,11 +250,35 @@ export async function createMenuTemplateBuffer() {
 export async function createMenuExportBuffer(menu: Dish[]) {
   const workbook = await createMenuWorkbook(false);
   const sheet = workbook.getWorksheet('Carta')!;
-  const rows = menu.flatMap(dish => dish.ingredients.map(ingredient => {
-    const marked = new Set<string>(ingredient.allergens.map(id => ALLERGEN_LABEL[id]));
-    if (ingredient.allergensReviewed && ingredient.allergens.length === 0) marked.add('Ninguno');
-    return [dish.name, ingredient.isDishSummary ? '' : ingredient.name, ...CHECK_HEADERS.slice(2).map(label => marked.has(label) ? '✓' : '')];
-  }));
+  const rows = menu.map(dish => {
+    const visibleIngredients = dish.ingredients.filter(ingredient => !ingredient.isDishSummary);
+    const allergens = new Set<AllergenId>([...(dish.dishAllergens ?? []), ...dish.ingredients.flatMap(ingredient => ingredient.allergens)]);
+    const reviewed = dish.dishAllergensReviewed ?? dish.ingredients.every(ingredient => ingredient.allergensReviewed === true || (ingredient.allergensReviewed === undefined && ingredient.allergens.length > 0));
+    const marked = new Set<string>([...allergens].map(id => ALLERGEN_LABEL[id]));
+    if (reviewed && allergens.size === 0) marked.add('Ninguno');
+    return [dish.name, visibleIngredients.map(ingredient => ingredient.name).join('\n'), ...SIMPLE_HEADERS.slice(2).map(label => marked.has(label) ? '✓' : '')];
+  });
+  rows.forEach((row, index) => {
+    const excelRow = sheet.getRow(index + 2);
+    excelRow.values = row;
+    excelRow.height = Math.max(22, String(row[1]).split('\n').length * 16);
+  });
+  return workbook.xlsx.writeBuffer();
+}
+
+export async function createDetailedMenuExportBuffer(menu: Dish[]) {
+  const workbook = await createMenuWorkbook(false, true);
+  const sheet = workbook.getWorksheet('Carta')!;
+  const rows = menu.flatMap(dish => {
+    const detailedRows = dish.ingredients.filter(ingredient => !ingredient.isDishSummary).map(ingredient => ({ name: ingredient.name, allergens: ingredient.allergens, reviewed: ingredient.allergensReviewed === true || (ingredient.allergensReviewed === undefined && ingredient.allergens.length > 0) }));
+    if (dish.dishAllergens !== undefined) detailedRows.unshift({ name: '', allergens: dish.dishAllergens, reviewed: dish.dishAllergensReviewed === true });
+    if (!detailedRows.length) detailedRows.push({ name: '', allergens: [], reviewed: false });
+    return detailedRows.map(item => {
+      const marked = new Set<string>(item.allergens.map(id => ALLERGEN_LABEL[id]));
+      if (item.reviewed && !item.allergens.length) marked.add('Ninguno');
+      return [dish.name, item.name, ...CHECK_HEADERS.slice(2).map(label => marked.has(label) ? '✓' : '')];
+    });
+  });
   rows.forEach((row, index) => { sheet.getRow(index + 2).values = row; });
   return workbook.xlsx.writeBuffer();
 }
@@ -225,8 +297,8 @@ export async function downloadMenuTemplate() {
   downloadBuffer(buffer, 'Plantilla_carta_Hostelegal.xlsx');
 }
 
-export async function downloadMenuExcel(menu: Dish[], restaurantName: string) {
-  const buffer = await createMenuExportBuffer(menu);
+export async function downloadMenuExcel(menu: Dish[], restaurantName: string, detailed = false) {
+  const buffer = detailed ? await createDetailedMenuExportBuffer(menu) : await createMenuExportBuffer(menu);
   const safeName = normalizeImportName(restaurantName).replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '') || 'carta';
-  downloadBuffer(buffer, `Carta_${safeName}.xlsx`);
+  downloadBuffer(buffer, `Carta_${safeName}${detailed ? '_detallada' : ''}.xlsx`);
 }

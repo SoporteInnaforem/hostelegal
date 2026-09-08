@@ -33,6 +33,9 @@ export interface Dish {
   id: string;
   name: string;
   ingredients: Ingredient[];
+  /** Alérgenos declarados para el plato completo en el formato Excel sencillo. */
+  dishAllergens?: AllergenId[];
+  dishAllergensReviewed?: boolean;
 }
 
 // ─── State & Actions ──────────────────────────────────────────────────────────
@@ -67,6 +70,7 @@ interface MenuActions {
   markSaved(ownerId: string, revision: number): void;
   appendDishes(dishes: Dish[]): void;
   reviewIngredient(id: number, allergens: AllergenId[], reviewed: boolean): void;
+  reviewDishAllergens(allergens: AllergenId[], reviewed: boolean): void;
   setRestaurantName(name: string): void;
   setDraftName(name: string): void;
   addDraftIngredient(ingredient: Ingredient): void;
@@ -111,6 +115,7 @@ export const useMenuStore = create<MenuState & MenuActions>()(
       },
       appendDishes: (dishes) => set((s) => ({ menu: [...s.menu, ...dishes], revision: s.revision + 1 }), false, 'menu/import'),
       reviewIngredient: (id, allergens, allergensReviewed) => set((s) => ({ draftDish: { ...s.draftDish, ingredients: s.draftDish.ingredients.map((i) => i.id === id ? { ...i, allergens, allergensReviewed } : i) } }), false, 'menu/review'),
+      reviewDishAllergens: (dishAllergens, dishAllergensReviewed) => set((s) => ({ draftDish: { ...s.draftDish, dishAllergens, dishAllergensReviewed } }), false, 'menu/reviewDishAllergens'),
 
       setRestaurantName: (name) =>
         set((s) => ({ restaurantName: name, revision: s.revision + 1 }), false, 'menu/setRestaurantName'),

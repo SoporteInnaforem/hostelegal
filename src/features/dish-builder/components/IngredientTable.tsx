@@ -7,9 +7,10 @@ import type { AllergenId } from '../utils/allergens';
 import { AllergenIcon } from './AllergenIcon';
 import { isIngredientReviewed } from '../utils/menuValidation';
 
-function IngredientReview({ ingredient }: { ingredient: Ingredient }) {
+function IngredientReview({ ingredient, coveredByDish }: { ingredient: Ingredient; coveredByDish: boolean }) {
   const review = useMenuStore((s) => s.reviewIngredient);
   const reviewed = isIngredientReviewed(ingredient);
+  if (coveredByDish) return <p className="text-xs text-surface-500">Cubierto por los alérgenos generales del plato</p>;
   return <div className="min-w-48">
     {!reviewed && <p className="text-warning-600 text-xs font-semibold mb-2">Pendiente de revisión</p>}
     {reviewed && <AllergenCell allergens={ingredient.allergens} />}
@@ -26,6 +27,27 @@ function IngredientReview({ ingredient }: { ingredient: Ingredient }) {
         {ingredient.allergens.length ? 'Confirmar alérgenos seleccionados' : 'Confirmar que no contiene alérgenos de la lista'}
       </button>
     </details>
+  </div>;
+}
+
+function DishAllergenReview() {
+  const allergens = useMenuStore((s) => s.draftDish.dishAllergens);
+  const reviewed = useMenuStore((s) => s.draftDish.dishAllergensReviewed);
+  const review = useMenuStore((s) => s.reviewDishAllergens);
+  if (allergens === undefined || reviewed === undefined) return null;
+  return <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
+    <p className="text-sm font-semibold text-brand-800">Alérgenos generales del plato</p>
+    {!reviewed && <p className="mt-1 text-xs font-semibold text-warning-700">Pendiente de revisión</p>}
+    <fieldset className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <legend className="sr-only">Alérgenos generales del plato</legend>
+      {(Object.keys(ALLERGEN_LABEL) as AllergenId[]).map(id => <label key={id} className="flex items-center gap-1.5 text-xs text-surface-700">
+        <input type="checkbox" checked={allergens.includes(id)} onChange={event => review(event.target.checked ? [...allergens, id] : allergens.filter(allergen => allergen !== id), false)} />
+        {ALLERGEN_LABEL[id]}
+      </label>)}
+    </fieldset>
+    <button type="button" className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700" onClick={() => review(allergens, true)}>
+      {allergens.length ? 'Confirmar alérgenos del plato' : 'Confirmar que el plato no contiene alérgenos de la lista'}
+    </button>
   </div>;
 }
 
@@ -78,8 +100,11 @@ function EmptyState() {
 }
 
 export function IngredientTable() {
-  const ingredients     = useMenuStore((s) => s.draftDish.ingredients);
-  const globalAllergens = [...new Set(ingredients.flatMap((ing) => ing.allergens))];
+  const draftDish = useMenuStore((s) => s.draftDish);
+  const ingredients = draftDish.ingredients;
+  const coveredByDish = draftDish.dishAllergensReviewed !== undefined;
+  const globalAllergens = [...new Set([...(draftDish.dishAllergens ?? []), ...ingredients.flatMap((ing) => ing.allergens)])];
+  const visibleIngredientCount = ingredients.filter(ingredient => !ingredient.isDishSummary).length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -92,6 +117,7 @@ export function IngredientTable() {
           </p>
         </div>
       )}
+      <DishAllergenReview />
       <div className="rounded-xl border border-surface-300 overflow-hidden bg-white shadow-sm">
         {ingredients.length === 0 ? <EmptyState /> : (
           <div className="overflow-x-auto">
@@ -109,7 +135,7 @@ export function IngredientTable() {
                 {ingredients.map((ingredient, idx) => (
                   <tr key={ingredient.id} className={['transition-colors duration-100 hover:bg-brand-50', idx % 2 !== 0 ? 'bg-surface-50' : 'bg-white'].join(' ')}>
                     <td className="px-4 py-3 font-medium text-surface-800 whitespace-nowrap">{ingredient.isDishSummary ? 'Sin ingredientes (alérgenos del plato)' : ingredient.name}</td>
-                    <td className="px-4 py-3"><IngredientReview ingredient={ingredient} /></td>
+                    <td className="px-4 py-3"><IngredientReview ingredient={ingredient} coveredByDish={coveredByDish} /></td>
                     <td className="px-4 py-3 text-center"><DeleteButton ingredient={ingredient} /></td>
                   </tr>
                 ))}
@@ -117,7 +143,7 @@ export function IngredientTable() {
               <tfoot>
                 <tr className="border-t border-surface-200 bg-surface-100">
                   <td className="px-4 py-2.5 text-xs text-surface-500 font-medium">
-                    {ingredients.length} {ingredients.length === 1 ? 'ingrediente' : 'ingredientes'}
+                    {visibleIngredientCount} {visibleIngredientCount === 1 ? 'ingrediente' : 'ingredientes'}
                   </td>
                   <td colSpan={2} />
                 </tr>

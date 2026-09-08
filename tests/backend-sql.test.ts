@@ -55,6 +55,10 @@ test('menu permissions, draft isolation and explicit reviewed publication', asyn
   await asOwner(db);
   const pending = [{ ...reviewed[0], ingredients: [{...reviewed[0].ingredients[0],allergensReviewed:false}] }];
   await assert.rejects(db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(pending),'Published',owner]), /Revisa los alérgenos/);
+  const dishLevelPending = [{ ...pending[0], dishAllergens: ['PESCADO'], dishAllergensReviewed: false }];
+  await assert.rejects(db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(dishLevelPending),'Published',owner]), /alérgenos generales/);
+  const dishLevelReviewed = [{ ...pending[0], dishAllergens: ['PESCADO'], dishAllergensReviewed: true }];
+  await db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(dishLevelReviewed),'Published',owner]);
   await db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(reviewed),'Published',owner]);
   await db.query(`SELECT guardar_borrador_carta('[]','Secret',$1)`,[owner]);
   await asOwner(db,other);
@@ -142,6 +146,19 @@ test('compatibility migration keeps the legacy frontend working until cutover', 
   await assert.rejects(db.query('SELECT id FROM cartas'),/permission denied/);
   await asOwner(db);
   await assert.rejects(db.exec(`UPDATE cartas SET nombre_carta='Direct write' WHERE empresa_id=auth.uid()`),/permission denied/);
+ } finally { await db.close(); }
+});
+
+test('dish-level allergen migration is compatible and enforces explicit review', async () => {
+ const db = await database();
+ try {
+  const migration = await readFile(new URL('../supabase/migrations/202609080004_dish_level_allergens.sql',import.meta.url),'utf8');
+  await db.exec(migration);
+  await fixtures(db); await asOwner(db);
+  const ingredientsPending = [{ id: 'simple', name: 'Plato sencillo', ingredients: [{ id: 99, name: 'Atún', allergens: [], allergensReviewed: false }], dishAllergens: ['PESCADO'], dishAllergensReviewed: true }];
+  await db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(ingredientsPending),'Sencilla',owner]);
+  const pendingDish = [{ ...ingredientsPending[0], dishAllergensReviewed: false }];
+  await assert.rejects(db.query('SELECT publicar_carta($1,$2,$3)',[JSON.stringify(pendingDish),'Pendiente',owner]),/alérgenos generales/);
  } finally { await db.close(); }
 });
 

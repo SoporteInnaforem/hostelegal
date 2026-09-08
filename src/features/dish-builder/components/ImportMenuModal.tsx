@@ -45,7 +45,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
         <h2 id="import-menu-title" className="text-xl font-bold">Importar carta desde Excel</h2>
         <button type="button" onClick={onClose} className={buttonClass} aria-label="Cerrar importación">Cerrar</button>
       </div>
-      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla y marca ✓ en las columnas de alérgenos. Puedes incluir una fila por ingrediente o dejar «Ingrediente» vacío para informar solo del plato y sus alérgenos. Marca «Ninguno» si no contiene ninguno.</p>
+      <p id="import-menu-description" className="mt-3 text-sm">Descarga la plantilla, usa una fila por plato y escribe cada ingrediente en una línea dentro de la misma celda. Marca ✓ en los alérgenos generales del plato o «Ninguno». Los archivos detallados anteriores también siguen funcionando.</p>
       <p className="mt-2 text-sm text-slate-600">Solo .xlsx · máximo 2 MB, 2000 filas, 300 platos y 100 ingredientes por plato. Los platos existentes no se sustituyen.</p>
       <div className="my-5 flex flex-wrap items-center gap-4">
         <button type="button" className={buttonClass} disabled={busy} onClick={async () => {
@@ -68,7 +68,7 @@ function ImportDialog({ onClose, onImport, existingMenu }: Omit<Props, 'isOpen'>
       {error && <p role="alert" className="my-3 rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
       {result && <section aria-label="Vista previa de importación">
         <p role="status" className="font-semibold">{fileName}: {result.dishes.length} platos · {result.dishes.reduce((n, d) => n + d.ingredients.filter(i => !i.isDishSummary).length, 0)} ingredientes incluidos</p>
-        {result.pending > 0 && <p className="my-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{result.pending} {result.pending === 1 ? 'ingrediente pendiente' : 'ingredientes pendientes'} de revisar: los alérgenos estaban en blanco. Puedes importarlos, pero tendrás que revisarlos antes de publicar o generar el PDF. «Ninguno» solo indica ausencia revisada.</p>}
+        {result.pending > 0 && <p className="my-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{result.pending} {result.pending === 1 ? 'revisión pendiente' : 'revisiones pendientes'}: los alérgenos estaban en blanco. Puedes importar los platos, pero tendrás que revisarlos antes de publicar o generar el PDF. «Ninguno» solo indica ausencia revisada.</p>}
         {conflicts.length > 0 && <p role="alert" className="my-3 text-red-800">Estos platos ya están en la carta: {conflicts.map(d => d.name).join(', ')}. Corrige el archivo y vuelve a cargarlo.</p>}
         {result.errors.length > 0 && <div role="alert" className="my-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
           <p className="font-semibold">Corrige {result.errors.length} errores en el Excel y vuelve a seleccionarlo. No se añadirá ningún plato hasta resolverlos.</p>

@@ -198,9 +198,9 @@ async function exportCartaPDF(
     const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
     const unique = [
       ...new Set(
-        ingredients.flatMap((ingredient) =>
+        [...(dish.dishAllergens ?? []), ...ingredients.flatMap((ingredient) =>
           normalizeAllergens(ingredient?.allergens),
-        ),
+        )],
       ),
     ];
     summaryAllergens.push(unique);
@@ -308,11 +308,17 @@ async function exportCartaPDF(
     cursorY += 3;
 
     const rowAllergens: AllergenId[][] = [];
-    const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients : [];
-    const rows = ingredients.map((ingredient) => {
+    const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients.filter(ingredient => !ingredient.isDishSummary) : [];
+    const rows: string[][] = [];
+    if (dish.dishAllergens !== undefined) {
+      rowAllergens.push(normalizeAllergens(dish.dishAllergens));
+      rows.push(["Alérgenos generales del plato", ""]);
+    }
+    ingredients.forEach((ingredient) => {
       rowAllergens.push(normalizeAllergens(ingredient?.allergens));
-      return [ingredient?.isDishSummary ? "Ingredientes no incluidos" : ingredient?.name?.trim() || "Ingrediente sin nombre", ""];
+      rows.push([ingredient?.name?.trim() || "Ingrediente sin nombre", ""]);
     });
+    if (!rows.length) rows.push(["Ingredientes no incluidos", ""]);
 
     autoTable(doc, {
       startY: cursorY,
@@ -393,7 +399,7 @@ function MenuRow({ dish }: { dish: Dish }) {
   const [showEditWarning, setShowEditWarning] = useState(false);
 
   const uniqueAllergens = [
-    ...new Set(dish.ingredients.flatMap((i) => i.allergens)),
+    ...new Set([...(dish.dishAllergens ?? []), ...dish.ingredients.flatMap((i) => i.allergens)]),
   ];
 
   function handleDelete() {
@@ -567,12 +573,12 @@ export function MenuBuilder() {
     }
   }
 
-  async function handleExcelExport() {
+  async function handleExcelExport(detailed = false) {
     if (!menu.length || isExcelExporting) return;
     setExportError(null);
     setIsExcelExporting(true);
     try {
-      await downloadMenuExcel(menu, restaurantName);
+      await downloadMenuExcel(menu, restaurantName, detailed);
     } catch {
       setExportError('No se pudo generar el Excel. Inténtalo de nuevo.');
     } finally {
@@ -642,14 +648,15 @@ export function MenuBuilder() {
           </div>
           <button type="button" onClick={persistence.retry} disabled={persistence.saving} className="px-3 py-2 rounded-lg bg-surface-100">{persistence.error ? 'Reintentar' : 'Guardar ahora'}</button>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleExcelExport} disabled={!menu.length || isExcelExporting} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-100 text-surface-700 font-semibold disabled:opacity-50">
+            <button type="button" onClick={() => handleExcelExport()} disabled={!menu.length || isExcelExporting} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-100 text-surface-700 font-semibold disabled:opacity-50">
               {isExcelExporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
               {isExcelExporting ? 'Exportando…' : 'Exportar Excel'}
             </button>
+            <button type="button" onClick={() => handleExcelExport(true)} disabled={!menu.length || isExcelExporting} className="px-3 py-2 text-sm font-medium text-surface-600 underline underline-offset-2 disabled:opacity-50">Excel detallado</button>
             <button type="button" onClick={() => setImportOpen(true)} className="px-4 py-2 rounded-lg bg-brand-50 text-brand-700 font-semibold">Importar Excel</button>
           </div>
         </div>
-        {pending > 0 && <p role="alert" className="rounded-xl bg-warning-50 text-warning-700 p-4">Hay {pending} ingredientes pendientes de revisión. Edita sus platos y confirma los alérgenos antes de publicar o descargar el PDF.</p>}
+        {pending > 0 && <p role="alert" className="rounded-xl bg-warning-50 text-warning-700 p-4">Hay {pending} revisiones de alérgenos pendientes. Edita los platos y confirma la información antes de publicar o descargar el PDF.</p>}
         {exportError && <p role="alert" className="text-danger-600">{exportError}</p>}
 
 
