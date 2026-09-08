@@ -173,3 +173,10 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - Renombrar, mover o eliminar una sección no elimina ni duplica platos.
 - El editor, Excel, PDF y carta pública presentan las mismas agrupaciones y el mismo orden.
 - Las cartas y los Excel existentes continúan funcionando sin intervención del usuario.
+
+## Corrección del QR en Preview (2026-09-08)
+
+- [x] Localizar la diferencia entre la carta pública implementada y la URL codificada en el QR.
+- [x] Hacer que un QR generado desde Vercel Preview abra esa misma versión de Preview, aunque producción tenga `VITE_PUBLIC_MENU_URL` configurada.
+- [x] Mantener el dominio público configurable para los despliegues estables y la compatibilidad con los dominios anteriores.
+- [ ] Regenerar el QR en Preview y comprobar visualmente las cabeceras de sección.

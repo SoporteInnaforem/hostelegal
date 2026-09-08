@@ -5,6 +5,7 @@ import { FileText, QrCode, X, Loader2, ExternalLink } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import type { Dish } from '../store/useMenuStore';
 import { pendingIngredients } from '../utils/menuValidation';
+import { publicMenuUrl } from '../utils/publicMenuUrl';
 
 interface PublishModalProps {
     isOpen: boolean;
@@ -37,25 +38,7 @@ export function PublishModal({ isOpen, onClose, onGeneratePDF, platos, restauran
 
             if (dbError) throw dbError;
 
-            // --- LÓGICA DE 3 VÍAS PARA LA URL DEL QR ---
-            const hostname = window.location.hostname;
-            let dominioPublico = "";
-
-            if (hostname === "localhost" || hostname === "127.0.0.1") {
-                // A) BANCO DE PRUEBAS LOCAL
-                dominioPublico = window.location.origin;
-            }
-            else if (hostname.includes("portal-hostelegal")) {
-                // B) BANCO DE PRUEBAS DESPLEGADO (Tu Vercel)
-                dominioPublico = "https://cartas-portal-hostelegal.vercel.app";
-            }
-            else {
-                // C) DESPLIEGUE TOTAL (Vercel de la empresa)
-                dominioPublico = "https://cartahostelegal.vercel.app";
-            }
-
-            const publicOrigin = import.meta.env.VITE_PUBLIC_MENU_URL || dominioPublico;
-            const url = `${publicOrigin.replace(/\/$/, '')}/carta/${data}`;
+            const url = publicMenuUrl(window.location.origin, String(data), import.meta.env.VITE_PUBLIC_MENU_URL);
             setPublicUrl(url);
 
         } catch (err: unknown) {
