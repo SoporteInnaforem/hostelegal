@@ -113,3 +113,4 @@ Incorporar la importación de cartas mediante Excel y resolver previamente los r
 - [x] Mostrar los alérgenos generales en el editor, el PDF y la carta pública.
 - [x] Añadir una migración compatible que no modifica las cartas existentes.
 - [x] Aplicar la migración `202609080004_dish_level_allergens.sql` al proyecto Supabase vinculado y validar el conjunto: 41 pruebas, compilación y lint correctos.
+- [x] Retirar de Documentación de interés el aviso y el enlace para abrir la carpeta completa en Drive; se conservan las tarjetas y descargas individuales.
